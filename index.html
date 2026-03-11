@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAURABH'S AI</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="setup">
+  <div class="setup-card">
+    <div class="big-icon">🤖</div>
+    <h2>SETUP YOUR AI</h2>
+    <p>Enter your Groq API key to activate your personal assistant.</p>
+    <input type="password" class="setup-input" id="apiKeyInput" placeholder="Paste your Groq API key here..." />
+    <input type="text" class="setup-input" id="assistantName" placeholder="Give your assistant a name... (e.g. SEVO)" />
+    <button class="setup-btn" onclick="saveSetup()">ACTIVATE ASSISTANT 🚀</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-left">
+    <div class="avatar" id="mainAvatar">😊</div>
+    <div class="header-info">
+      <h1 id="assistantTitle">MY ASSISTANT</h1>
+      <div class="status" id="statusText">online & ready</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div id="weatherWidget" class="weather-widget">🌤️ --°C</div>
+    <button class="icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" title="Toggle voice output">🔊</button>
+    <button class="icon-btn" onclick="clearChat()" title="Clear chat">🗑️</button>
+    <button class="icon-btn" onclick="resetSetup()" title="Change API key">⚙️</button>
+  </div>
+</header>
+
+<div id="chat">
+  <div class="welcome" id="welcome">
+    <h2 id="welcomeTitle">Hey Saurabh! 👋</h2>
+    <p id="welcomeSub">Your personal AI is ready. What's on your mind?</p>
+    <div class="suggestions">
+      <div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div>
+      <div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div>
+      <div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div>
+      <div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="input-wrapper">
+    <textarea id="userInput" placeholder="Talk to your AI..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <div class="input-actions">
+      <button class="action-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎤</button>
+      <button class="action-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+    </div>
+  </div>
+  <div class="hint">Press Enter to send · Shift+Enter for new line · 🎤 for voice input</div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
