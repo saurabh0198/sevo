@@ -5,6 +5,8 @@ let isRecording = false;
 let recognition = null;
 let conversationHistory = JSON.parse(localStorage.getItem('sevo_memory') || '[]');
 const WEATHER_KEY = '74eee2de5a866a457a2ea6f13028fce3';
+const ELEVENLABS_KEY = 'sk_610e0c49215911602b66847c4e18f54d8958ecd695875e01';
+const ELEVENLABS_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
 const CITY = 'Siliguri';
 let currentWeather = '';
 
@@ -79,7 +81,6 @@ function loadChatHistory() {
   conversationHistory.forEach(msg => {
     if (msg.role === 'user' || msg.role === 'assistant') {
       const div = document.createElement('div');
-      div.className = `message ${msg.role === 'user' ? 'ai' : 'user'} ${msg.role === 'user' ? 'user' : 'ai'}`;
       div.className = `message ${msg.role === 'user' ? 'user' : 'ai'}`;
       const avatar = msg.role === 'assistant' ? '😊' : '😎';
       div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${msg.content.replace(/\n/g, '<br>')}</div>`;
@@ -118,15 +119,28 @@ async function speakElevenLabs(text) {
   try {
     document.getElementById('mainAvatar').classList.add('speaking');
     document.getElementById('statusText').textContent = 'speaking...';
-    const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 200);
-    const encoded = encodeURIComponent(clean);
-    const url = `https://api.streamelements.com/kappa/v2/speech?voice=Aditi&text=${encoded}`;
+    const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 300);
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_KEY
+      },
+      body: JSON.stringify({
+        text: clean,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: { stability: 0.5, similarity_boost: 0.5 }
+      })
+    });
+    if (!response.ok) throw new Error('ElevenLabs failed');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.onended = () => {
       document.getElementById('mainAvatar').classList.remove('speaking');
       document.getElementById('statusText').textContent = 'online & ready';
     };
-    audio.onerror = () => { speakFallback(text); };
     audio.play();
   } catch(e) { speakFallback(text); }
 }
