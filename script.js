@@ -5,8 +5,6 @@ let isRecording = false;
 let recognition = null;
 let conversationHistory = JSON.parse(localStorage.getItem('sevo_memory') || '[]');
 const WEATHER_KEY = '74eee2de5a866a457a2ea6f13028fce3';
-const ELEVENLABS_KEY = 'sk_610e0c49215911602b66847c4e18f54d8958ecd695875e01';
-const ELEVENLABS_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
 const CITY = 'Siliguri';
 let currentWeather = '';
 
@@ -115,47 +113,25 @@ function playTypeSound() {
   } catch(e) {}
 }
 
-async function speakElevenLabs(text) {
-  try {
-    document.getElementById('mainAvatar').classList.add('speaking');
-    document.getElementById('statusText').textContent = 'speaking...';
-    const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 300);
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'audio/mpeg',
-        'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_KEY
-      },
-      body: JSON.stringify({
-        text: clean,
-        model_id: 'eleven_monolingual_v1',
-        voice_settings: { stability: 0.5, similarity_boost: 0.5 }
-      })
-    });
-    if (!response.ok) throw new Error('ElevenLabs failed');
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => {
-      document.getElementById('mainAvatar').classList.remove('speaking');
-      document.getElementById('statusText').textContent = 'online & ready';
-    };
-    audio.play();
-  } catch(e) { speakFallback(text); }
-}
-
-function speakFallback(text) {
+function speakGoogle(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '');
   const utterance = new SpeechSynthesisUtterance(clean);
-  utterance.lang = 'en-IN'; utterance.rate = 1.05; utterance.pitch = 1;
+  utterance.lang = 'en-GB';
+  utterance.rate = 0.95;
+  utterance.pitch = 1.1;
   const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v => v.lang.includes('en') && v.name.includes('Google'));
+  const preferred = voices.find(v => v.name.includes('Google UK English Female'));
   if (preferred) utterance.voice = preferred;
-  utterance.onstart = () => { document.getElementById('mainAvatar').classList.add('speaking'); document.getElementById('statusText').textContent = 'speaking...'; };
-  utterance.onend = () => { document.getElementById('mainAvatar').classList.remove('speaking'); document.getElementById('statusText').textContent = 'online & ready'; };
+  utterance.onstart = () => {
+    document.getElementById('mainAvatar').classList.add('speaking');
+    document.getElementById('statusText').textContent = 'speaking...';
+  };
+  utterance.onend = () => {
+    document.getElementById('mainAvatar').classList.remove('speaking');
+    document.getElementById('statusText').textContent = 'online & ready';
+  };
   window.speechSynthesis.speak(utterance);
 }
 
@@ -186,7 +162,7 @@ async function sendMessage() {
     addMessage('ai', reply);
     playTypeSound();
     document.getElementById('statusText').textContent = 'online & ready';
-    if (voiceOutput) await speakElevenLabs(reply);
+    if (voiceOutput) speakGoogle(reply);
   } catch (err) {
     removeTyping();
     addMessage('ai', `❌ Something went wrong. Check your API key or internet connection.`);
