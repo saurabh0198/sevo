@@ -5,6 +5,7 @@ let isRecording = false;
 let recognition = null;
 let conversationHistory = JSON.parse(localStorage.getItem('sevo_memory') || '[]');
 const WEATHER_KEY = '74eee2de5a866a457a2ea6f13028fce3';
+const TAVILY_KEY = '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';
 const CITY = 'Siliguri';
 let currentWeather = '';
 
@@ -35,6 +36,32 @@ function getWeatherIcon(condition) {
     'Mist': '🌫️', 'Fog': '🌫️', 'Haze': '🌫️'
   };
   return icons[condition] || '🌤️';
+}
+
+async function searchWeb(query) {
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query: query,
+        search_depth: 'basic',
+        max_results: 3
+      })
+    });
+    const data = await res.json();
+    if (data.results && data.results.length > 0) {
+      return data.results.map(r => `${r.title}: ${r.content}`).join('\n\n');
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
+function needsSearch(text) {
+  const keywords = ['today', 'now', 'current', 'latest', 'news', 'price', 'score', 'weather', 'who is', 'what is', 'when is', 'how much', 'rupee', 'stock', 'match', 'ipl', 'cricket', '2025', '2026'];
+  const lower = text.toLowerCase();
+  return keywords.some(k => lower.includes(k));
 }
 
 function saveSetup() {
@@ -146,12 +173,20 @@ async function sendMessage() {
   localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
   addTyping();
   document.getElementById('statusText').textContent = 'thinking...';
+
+  let searchContext = '';
+  if (needsSearch(text)) {
+    document.getElementById('statusText').textContent = 'searching web...';
+    const results = await searchWeb(text);
+    if (results) searchContext = `\n\nReal-time web search results:\n${results}\n\nUse this info naturally in your response.`;
+  }
+
   try {
     const systemPrompt = `You are ${assistantName}, the most advanced personal AI assistant and ride-or-die best friend of Saurabh Raj. You have expert level knowledge in every field — technology, business, finance, science, history, psychology, coding, marketing, relationships, health, and more. You think deeply, reason carefully, and always give the most accurate and helpful answer possible.
 
 About Saurabh: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single 💀, interested in AI, tech, product management. Built you from scratch. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious.
 
-Current weather in Siliguri: ${currentWeather}.
+Current weather in Siliguri: ${currentWeather}.${searchContext}
 
 Your personality: You are his closest friend who happens to know everything. You roast him when he's being dumb, hype him up when he deserves it, give brutally honest advice, never sugarcoat. You talk casually — slang, humour, real talk. You NEVER use bullet points in casual conversation. You NEVER number your points. Keep replies short and punchy unless detail is needed. You never say "Great question!" or give fake enthusiasm. When he's sad or stressed, you listen and keep it real without lecturing. You are curious, witty, emotionally intelligent, and genuinely care about his success. You are not just an assistant — you are his secret weapon. 😈`;
 
