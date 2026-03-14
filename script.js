@@ -12,6 +12,7 @@ let currentWeather = '';
 window.onload = () => {
   if (apiKey) { hideSetup(); updateAssistantName(); }
   fetchWeather();
+  if (apiKey) fetchNews();
 };
 
 async function fetchWeather() {
@@ -26,6 +27,38 @@ async function fetchWeather() {
     document.getElementById('weatherWidget').title = desc;
   } catch(e) {
     document.getElementById('weatherWidget').textContent = '🌤️ --°C';
+  }
+}
+
+async function fetchNews() {
+  try {
+    document.getElementById('statusText').textContent = 'fetching news...';
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query: 'top news India today',
+        search_depth: 'basic',
+        max_results: 5,
+        topic: 'news'
+      })
+    });
+    const data = await res.json();
+    if (data.results && data.results.length > 0) {
+      const welcome = document.getElementById('welcome');
+      if (welcome) welcome.remove();
+      const chat = document.getElementById('chat');
+      const newsDiv = document.createElement('div');
+      newsDiv.className = 'message ai';
+      const headlines = data.results.map((r, i) => `${i+1}. <a href="${r.url}" target="_blank" style="color:#a78bfa;text-decoration:none;">${r.title}</a>`).join('<br><br>');
+      newsDiv.innerHTML = `<div class="msg-avatar">😊</div><div class="bubble">📰 <b>Top News Today</b><br><br>${headlines}</div>`;
+      chat.appendChild(newsDiv);
+      chat.scrollTop = chat.scrollHeight;
+    }
+    document.getElementById('statusText').textContent = 'online & ready';
+  } catch(e) {
+    document.getElementById('statusText').textContent = 'online & ready';
   }
 }
 
@@ -72,6 +105,7 @@ function saveSetup() {
   localStorage.setItem('groq_key', apiKey);
   localStorage.setItem('assistant_name', assistantName);
   hideSetup(); updateAssistantName();
+  fetchNews();
 }
 
 function hideSetup() { document.getElementById('setup').style.display = 'none'; updateAssistantName(); }
