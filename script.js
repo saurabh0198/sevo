@@ -3,17 +3,81 @@ let assistantName = localStorage.getItem('assistant_name') || 'Assistant';
 let voiceOutput = true;
 let isRecording = false;
 let recognition = null;
+let wakeWordRecognition = null;
+let wakeWordActive = false;
 let conversationHistory = JSON.parse(localStorage.getItem('sevo_memory') || '[]');
 const WEATHER_KEY = '74eee2de5a866a457a2ea6f13028fce3';
 const TAVILY_KEY = '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';
+const ELEVENLABS_KEY = 'sk_610e0c49215911602b66847c4e18f54d8958ecd695875e01';
+const ELEVENLABS_VOICE = '21m00Tcm4TlvDq8ikWAM';
 const CITY = 'Siliguri';
 let currentWeather = '';
+let elevenLabsAvailable = true;
 
-window.onload = () => {
-  if (apiKey) { hideSetup(); updateAssistantName(); }
+window.onload = async () => {
+  if (apiKey) { hideSetup(); updateAssistantName(); startWakeWord(); }
   fetchWeather();
   if (apiKey) fetchNews();
+  if (window.electronAPI) {
+    const savedMemory = await window.electronAPI.loadMemory();
+    if (savedMemory && savedMemory.length > 0) {
+      conversationHistory = savedMemory;
+      loadChatHistory();
+    }
+  }
 };
+
+function startWakeWord() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  wakeWordRecognition = new SpeechRecognition();
+  wakeWordRecognition.lang = 'en-IN';
+  wakeWordRecognition.continuous = true;
+  wakeWordRecognition.interimResults = true;
+  wakeWordRecognition.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const transcript = e.results[i][0].transcript.toLowerCase().trim();
+      if (transcript.includes('hey sevo') || transcript.includes('hey seva') || transcript.includes('hey servo')) {
+        wakeWordDetected();
+      }
+    }
+  };
+  wakeWordRecognition.onend = () => {
+    if (!isRecording) {
+      try { wakeWordRecognition.start(); } catch(e) {}
+    }
+  };
+  try { wakeWordRecognition.start(); } catch(e) {}
+}
+
+function wakeWordDetected() {
+  if (wakeWordActive || isRecording) return;
+  wakeWordActive = true;
+  playWakeSound();
+  document.getElementById('statusText').textContent = 'listening...';
+  document.getElementById('mainAvatar').classList.add('speaking');
+  setTimeout(() => {
+    wakeWordActive = false;
+    document.getElementById('mainAvatar').classList.remove('speaking');
+    toggleVoice();
+  }, 800);
+}
+
+function playWakeSound() {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    oscillator.connect(gainNode); gainNode.connect(audioCtx.destination);
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.15);
+    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+    oscillator.start(audioCtx.currentTime);
+    oscillator.stop(audioCtx.currentTime + 0.15);
+  } catch(e) {}
+}
 
 async function fetchWeather() {
   try {
@@ -97,6 +161,50 @@ function needsSearch(text) {
   return keywords.some(k => lower.includes(k));
 }
 
+async function handleUserPCControl(text) {
+  const lower = text.toLowerCase();
+  if (lower.includes('play') && (lower.includes('youtube') || lower.includes('song') || lower.includes('music'))) {
+    const query = lower.replace('play', '').replace('on youtube', '').replace('youtube', '').replace('song', '').replace('music', '').trim();
+    await window.electronAPI?.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
+    addMessage('ai', `Playing "${query}" on YouTube 🎵`);
+    if (voiceOutput) speak(`Playing ${query} on YouTube`);
+    return true;
+  } else if (lower.includes('search youtube for') || lower.includes('youtube search')) {
+    const query = lower.replace('search youtube for', '').replace('youtube search', '').trim();
+    await window.electronAPI?.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
+    addMessage('ai', `Searching YouTube for "${query}" 🎬`);
+    if (voiceOutput) speak(`Searching YouTube for ${query}`);
+    return true;
+  } else if (lower.includes('search google for') || lower.includes('google search')) {
+    const query = lower.replace('search google for', '').replace('google search', '').trim();
+    await window.electronAPI?.openUrl(`https://google.com/search?q=${encodeURIComponent(query)}`);
+    addMessage('ai', `Searching Google for "${query}" 🔍`);
+    if (voiceOutput) speak(`Searching Google for ${query}`);
+    return true;
+  } else if (lower.includes('open youtube')) {
+    await window.electronAPI?.openUrl('https://youtube.com');
+    addMessage('ai', `Opening YouTube 🎬`);
+    if (voiceOutput) speak('Opening YouTube');
+    return true;
+  } else if (lower.includes('open google')) {
+    await window.electronAPI?.openUrl('https://google.com');
+    addMessage('ai', `Opening Google 🔍`);
+    if (voiceOutput) speak('Opening Google');
+    return true;
+  } else if (lower.includes('open whatsapp')) {
+    await window.electronAPI?.openUrl('https://web.whatsapp.com');
+    addMessage('ai', `Opening WhatsApp 💬`);
+    if (voiceOutput) speak('Opening WhatsApp');
+    return true;
+  } else if (lower.includes('open spotify')) {
+    await window.electronAPI?.openUrl('https://open.spotify.com');
+    addMessage('ai', `Opening Spotify 🎵`);
+    if (voiceOutput) speak('Opening Spotify');
+    return true;
+  }
+  return false;
+}
+
 function saveSetup() {
   const key = document.getElementById('apiKeyInput').value.trim();
   const name = document.getElementById('assistantName').value.trim();
@@ -106,6 +214,7 @@ function saveSetup() {
   localStorage.setItem('assistant_name', assistantName);
   hideSetup(); updateAssistantName();
   fetchNews();
+  startWakeWord();
 }
 
 function hideSetup() { document.getElementById('setup').style.display = 'none'; updateAssistantName(); }
@@ -137,6 +246,7 @@ function loadChatHistory() {
   const welcome = document.getElementById('welcome');
   if (conversationHistory.length > 0 && welcome) welcome.remove();
   const chat = document.getElementById('chat');
+  chat.innerHTML = '';
   conversationHistory.forEach(msg => {
     if (msg.role === 'user' || msg.role === 'assistant') {
       const div = document.createElement('div');
@@ -174,17 +284,56 @@ function playTypeSound() {
   } catch(e) {}
 }
 
+async function speakElevenLabs(text) {
+  try {
+    const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_KEY
+      },
+      body: JSON.stringify({
+        text: clean,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+      })
+    });
+    if (!res.ok) throw new Error('ElevenLabs failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onplay = () => {
+      document.getElementById('mainAvatar').classList.add('speaking');
+      document.getElementById('statusText').textContent = 'speaking...';
+    };
+    audio.onended = () => {
+      document.getElementById('mainAvatar').classList.remove('speaking');
+      document.getElementById('statusText').textContent = 'online & ready';
+      URL.revokeObjectURL(url);
+    };
+    await audio.play();
+    return true;
+  } catch(e) {
+    elevenLabsAvailable = false;
+    return false;
+  }
+}
+
 function speakGoogle(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '');
   const utterance = new SpeechSynthesisUtterance(clean);
-  utterance.lang = 'en-GB';
+  utterance.lang = 'en-IN';
   utterance.rate = 0.95;
   utterance.pitch = 1.1;
   const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v => v.name.includes('Google UK English Female'));
+  if (!voices.length) { setTimeout(() => speakGoogle(text), 500); return; }
+  const preferred = voices.find(v => v.lang.includes('en') && v.name.includes('Google') && v.name.toLowerCase().includes('female'));
+  const fallback = voices.find(v => v.lang.includes('en') && v.name.includes('Google'));
   if (preferred) utterance.voice = preferred;
+  else if (fallback) utterance.voice = fallback;
   utterance.onstart = () => {
     document.getElementById('mainAvatar').classList.add('speaking');
     document.getElementById('statusText').textContent = 'speaking...';
@@ -196,6 +345,15 @@ function speakGoogle(text) {
   window.speechSynthesis.speak(utterance);
 }
 
+async function speak(text) {
+  if (elevenLabsAvailable) {
+    const success = await speakElevenLabs(text);
+    if (!success) speakGoogle(text);
+  } else {
+    speakGoogle(text);
+  }
+}
+
 async function sendMessage() {
   const input = document.getElementById('userInput');
   const text = input.value.trim();
@@ -203,8 +361,13 @@ async function sendMessage() {
   input.value = ''; input.style.height = 'auto';
   document.getElementById('sendBtn').disabled = true;
   addMessage('user', text);
+
+  const pcHandled = await handleUserPCControl(text);
+  if (pcHandled) { document.getElementById('sendBtn').disabled = false; return; }
+
   conversationHistory.push({ role: 'user', content: text });
-  localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
+  if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
+  else localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
   addTyping();
   document.getElementById('statusText').textContent = 'thinking...';
 
@@ -234,11 +397,12 @@ Your personality: You are his closest friend who happens to know everything. You
     if (data.error) { addMessage('ai', `❌ Error: ${data.error.message}`); document.getElementById('statusText').textContent = 'error occurred'; document.getElementById('sendBtn').disabled = false; return; }
     const reply = data.choices[0].message.content;
     conversationHistory.push({ role: 'assistant', content: reply });
-    localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
+    if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
+    else localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
     addMessage('ai', reply);
     playTypeSound();
     document.getElementById('statusText').textContent = 'online & ready';
-    if (voiceOutput) speakGoogle(reply);
+    if (voiceOutput) speak(reply);
   } catch (err) {
     removeTyping();
     addMessage('ai', `❌ Something went wrong. Check your API key or internet connection.`);
@@ -268,12 +432,12 @@ function toggleVoiceOutput() {
 
 function clearChat() {
   conversationHistory = [];
-  localStorage.removeItem('sevo_memory');
+  if (window.electronAPI) window.electronAPI.saveMemory([]);
+  else localStorage.removeItem('sevo_memory');
   const chat = document.getElementById('chat');
   chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">Hey Saurabh! 👋</h2><p id="welcomeSub">${assistantName} is ready. What's on your mind?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 if (window.speechSynthesis) { window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); }
-window.addEventListener('load', loadChatHistory);
 setInterval(fetchWeather, 600000);
