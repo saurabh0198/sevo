@@ -162,47 +162,47 @@ function needsSearch(text) {
 }
 
 async function handleUserPCControl(text) {
-  const lower = text.toLowerCase();
-  if (lower.includes('play') && (lower.includes('youtube') || lower.includes('song') || lower.includes('music'))) {
-    const query = lower.replace('play', '').replace('on youtube', '').replace('youtube', '').replace('song', '').replace('music', '').trim();
-    await window.electronAPI?.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
-    addMessage('ai', `Playing "${query}" on YouTube 🎵`);
-    if (voiceOutput) speak(`Playing ${query} on YouTube`);
+  const tools = {
+    open_youtube: () => { window.open('https://youtube.com', '_blank'); return 'Opening YouTube 🎬'; },
+    open_google: () => { window.open('https://google.com', '_blank'); return 'Opening Google 🔍'; },
+    open_spotify: () => { window.open('https://open.spotify.com', '_blank'); return 'Opening Spotify 🎵'; },
+    open_whatsapp: () => { window.open('https://web.whatsapp.com', '_blank'); return 'Opening WhatsApp 💬'; },
+    open_instagram: () => { window.open('https://instagram.com', '_blank'); return 'Opening Instagram 📸'; },
+    open_gmail: () => { window.open('https://mail.google.com', '_blank'); return 'Opening Gmail 📧'; },
+    search_youtube: (q) => { window.open(`https://youtube.com/results?search_query=${encodeURIComponent(q)}`, '_blank'); return `Searching YouTube for "${q}" 🎬`; },
+    search_google: (q) => { window.open(`https://google.com/search?q=${encodeURIComponent(q)}`, '_blank'); return `Searching Google for "${q}" 🔍`; },
+    play_music: (q) => { window.open(`https://open.spotify.com/search/${encodeURIComponent(q)}`, '_blank'); return `Playing "${q}" on Spotify 🎵`; },
+  };
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 100,
+        messages: [{
+          role: 'system',
+          content: `You are a tool detector. If the user wants to open an app or search something, respond with ONLY a JSON object like {"tool": "open_youtube"} or {"tool": "search_youtube", "query": "lofi beats"} or {"tool": "search_google", "query": "weather today"} or {"tool": "play_music", "query": "arijit singh"}. Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music. If no tool matches, respond with {"tool": "none"}.`
+        }, {
+          role: 'user',
+          content: text
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.choices[0].message.content.trim();
+    const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    
+    if (json.tool === 'none' || !tools[json.tool]) return false;
+    
+    const result = tools[json.tool](json.query || '');
+    addMessage('ai', result);
+    if (voiceOutput) speak(result);
     return true;
-  } else if (lower.includes('search youtube for') || lower.includes('youtube search')) {
-    const query = lower.replace('search youtube for', '').replace('youtube search', '').trim();
-    await window.electronAPI?.openUrl(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`);
-    addMessage('ai', `Searching YouTube for "${query}" 🎬`);
-    if (voiceOutput) speak(`Searching YouTube for ${query}`);
-    return true;
-  } else if (lower.includes('search google for') || lower.includes('google search')) {
-    const query = lower.replace('search google for', '').replace('google search', '').trim();
-    await window.electronAPI?.openUrl(`https://google.com/search?q=${encodeURIComponent(query)}`);
-    addMessage('ai', `Searching Google for "${query}" 🔍`);
-    if (voiceOutput) speak(`Searching Google for ${query}`);
-    return true;
-  } else if (lower.includes('open youtube')) {
-    await window.electronAPI?.openUrl('https://youtube.com');
-    addMessage('ai', `Opening YouTube 🎬`);
-    if (voiceOutput) speak('Opening YouTube');
-    return true;
-  } else if (lower.includes('open google')) {
-    await window.electronAPI?.openUrl('https://google.com');
-    addMessage('ai', `Opening Google 🔍`);
-    if (voiceOutput) speak('Opening Google');
-    return true;
-  } else if (lower.includes('open whatsapp')) {
-    await window.electronAPI?.openUrl('https://web.whatsapp.com');
-    addMessage('ai', `Opening WhatsApp 💬`);
-    if (voiceOutput) speak('Opening WhatsApp');
-    return true;
-  } else if (lower.includes('open spotify')) {
-    await window.electronAPI?.openUrl('https://open.spotify.com');
-    addMessage('ai', `Opening Spotify 🎵`);
-    if (voiceOutput) speak('Opening Spotify');
-    return true;
+  } catch(e) {
+    return false;
   }
-  return false;
 }
 
 function saveSetup() {
