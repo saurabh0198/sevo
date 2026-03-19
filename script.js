@@ -162,6 +162,9 @@ function needsSearch(text) {
 }
 
 async function handleUserPCControl(text) {
+  const personalKeywords = ['do i have', 'what do i', 'remind me', 'my deadline', 'my goal', 'my plan', 'what about me', 'do you know me', 'what do you know', 'my ms', 'my application', 'my interview', 'my exam', 'my schedule', 'am i', 'should i', 'my life', 'my college', 'my career'];
+  if (personalKeywords.some(k => text.toLowerCase().includes(k))) return false;
+
   const tools = {
     open_youtube: () => { window.open('https://youtube.com', '_blank'); return 'Opening YouTube 🎬'; },
     open_google: () => { window.open('https://google.com', '_blank'); return 'Opening Google 🔍'; },
