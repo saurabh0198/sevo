@@ -213,6 +213,30 @@ async function handleUserPCControl(text) {
     search_youtube: (q) => { window.open(`https://youtube.com/results?search_query=${encodeURIComponent(q)}`, '_blank'); return `Searching YouTube for "${q}" 🎬`; },
     search_google: (q) => { window.open(`https://google.com/search?q=${encodeURIComponent(q)}`, '_blank'); return `Searching Google for "${q}" 🔍`; },
     play_music: (q) => { window.open(`https://open.spotify.com/search/${encodeURIComponent(q)}`, '_blank'); return `Playing "${q}" on Spotify 🎵`; },
+    open_notepad: async () => { await window.electronAPI?.runPC('notepad.exe'); return 'Opening Notepad 📝'; },
+    open_calculator: async () => { await window.electronAPI?.runPC('calc.exe'); return 'Opening Calculator 🧮'; },
+    open_explorer: async () => { await window.electronAPI?.runPC('explorer.exe'); return 'Opening File Explorer 📁'; },
+    shutdown: async () => { await window.electronAPI?.runPC('shutdown /s /t 30'); return 'Shutting down in 30 seconds ⚠️'; },
+    restart: async () => { await window.electronAPI?.runPC('shutdown /r /t 30'); return 'Restarting in 30 seconds 🔄'; },
+    cancel_shutdown: async () => { await window.electronAPI?.runPC('shutdown /a'); return 'Shutdown cancelled ✅'; },
+    take_screenshot: async () => { await window.electronAPI?.takeScreenshot(); return 'Screenshot taken 📸 saved to Pictures'; },
+    system_info: async () => {
+      const info = await window.electronAPI?.getSystemInfo();
+      if (info) return `💻 ${info.hostname} | RAM: ${info.freeMemory} free of ${info.totalMemory} | Uptime: ${info.uptime}`;
+      return 'Getting system info...';
+    },
+    volume_up: async () => {
+      for(let i=0;i<5;i++) await window.electronAPI?.runPC('powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]175)"');
+      return 'Volume up 🔊';
+    },
+    volume_down: async () => {
+      for(let i=0;i<5;i++) await window.electronAPI?.runPC('powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]174)"');
+      return 'Volume down 🔉';
+    },
+    mute: async () => {
+      await window.electronAPI?.runPC('powershell -c "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"');
+      return 'Muted 🔇';
+    },
   };
 
   try {
@@ -224,7 +248,7 @@ async function handleUserPCControl(text) {
         max_tokens: 100,
         messages: [{
           role: 'system',
-          content: `You are a tool detector. If the user wants to open an app or search something, respond with ONLY a JSON object like {"tool": "open_youtube"} or {"tool": "search_youtube", "query": "lofi beats"} or {"tool": "search_google", "query": "weather today"} or {"tool": "play_music", "query": "arijit singh"}. Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music. If no tool matches, respond with {"tool": "none"}.`
+          content: `You are a tool detector. If the user wants to open an app, search something, or control their PC, respond with ONLY a JSON object. Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute. For searches use {"tool": "search_youtube", "query": "lofi beats"}. If no tool matches, respond with {"tool": "none"}.`
         }, {
           role: 'user',
           content: text
@@ -235,7 +259,7 @@ async function handleUserPCControl(text) {
     const raw = data.choices[0].message.content.trim();
     const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
     if (json.tool === 'none' || !tools[json.tool]) return false;
-    const result = tools[json.tool](json.query || '');
+    const result = await tools[json.tool](json.query || '');
     addMessage('ai', result);
     if (voiceOutput) speak(result);
     return true;
@@ -352,17 +376,12 @@ async function speakElevenLabs(text) {
   try {
     const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
     if (window.electronAPI?.speakElevenLabs) {
-      const base64Audio = await window.electronAPI.speakElevenLabs({
+      const fileUrl = await window.electronAPI.speakElevenLabs({
         text: clean,
         apiKey: ELEVENLABS_KEY,
         voiceId: ELEVENLABS_VOICE
       });
-      const binary = atob(base64Audio);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'audio/mp3' });
-      const audioUrl = URL.createObjectURL(blob);
-      const audio = new Audio(audioUrl);
+      const audio = new Audio(fileUrl);
       audio.onplay = () => {
         document.getElementById('mainAvatar').classList.add('speaking');
         document.getElementById('statusText').textContent = 'speaking...';
@@ -370,7 +389,6 @@ async function speakElevenLabs(text) {
       audio.onended = () => {
         document.getElementById('mainAvatar').classList.remove('speaking');
         document.getElementById('statusText').textContent = 'online & ready';
-        URL.revokeObjectURL(audioUrl);
       };
       await audio.play();
       return true;
