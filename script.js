@@ -13,11 +13,12 @@ const ELEVENLABS_VOICE = '21m00Tcm4TlvDq8ikWAM';
 const CITY = 'Siliguri';
 let currentWeather = '';
 let elevenLabsAvailable = true;
+let messageCount = 0;
 
 window.onload = async () => {
   if (apiKey) { hideSetup(); updateAssistantName(); startWakeWord(); }
   fetchWeather();
-  if (apiKey) fetchNews();
+  if (apiKey) { fetchNews(); setTimeout(proactiveGreeting, 3000); }
   if (window.electronAPI) {
     const savedMemory = await window.electronAPI.loadMemory();
     if (savedMemory && savedMemory.length > 0) {
@@ -26,6 +27,43 @@ window.onload = async () => {
     }
   }
 };
+
+async function proactiveGreeting() {
+  const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
+  if (!smartMemory || conversationHistory.length > 0) return;
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 100,
+        messages: [{
+          role: 'system',
+          content: `You are SEVO, Saurabh's personal AI assistant and possessive best friend. Based on what you remember about him, send ONE short proactive message to start the conversation. Could be a reminder, a check-in, or just acknowledging something important from memory. Keep it under 2 sentences. Casual but caring. Memory: ${smartMemory}`
+        }, {
+          role: 'user',
+          content: 'Start the conversation proactively'
+        }]
+      })
+    });
+    const data = await res.json();
+    const greeting = data.choices[0].message.content;
+    addMessage('ai', greeting);
+    if (voiceOutput) speak(greeting);
+  } catch(e) {}
+}
+
+function detectMood(text) {
+  const stressed = ['stressed', 'tired', 'exhausted', 'worried', 'anxious', 'scared', 'nervous', 'help', 'cant', "can't", 'fail', 'failing', 'bad', 'worst', 'hate', 'sad', 'depressed', 'lonely'];
+  const hyped = ['yes', 'yess', 'lets go', "let's go", 'finally', 'done', 'finished', 'achieved', 'got it', 'won', 'passed', 'happy', 'excited', 'amazing', 'great', 'awesome'];
+  const lower = text.toLowerCase();
+  if (stressed.some(w => lower.includes(w))) return 'stressed';
+  if (hyped.some(w => lower.includes(w))) return 'hyped';
+  if (text.length < 15) return 'short';
+  if (text.length > 200) return 'detailed';
+  return 'normal';
+}
 
 function startWakeWord() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
@@ -240,6 +278,7 @@ function saveSetup() {
   hideSetup(); updateAssistantName();
   fetchNews();
   startWakeWord();
+  setTimeout(proactiveGreeting, 3000);
 }
 
 function hideSetup() { document.getElementById('setup').style.display = 'none'; updateAssistantName(); }
@@ -339,7 +378,11 @@ async function speakElevenLabs(text) {
       const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_KEY },
-        body: JSON.stringify({ text: clean, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
+        body: JSON.stringify({
+          text: clean,
+          model_id: 'eleven_turbo_v2',
+          voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.3, use_speaker_boost: true }
+        })
       });
       if (!res.ok) throw new Error('ElevenLabs failed');
       const blob = await res.blob();
@@ -404,6 +447,7 @@ async function sendMessage() {
   input.value = ''; input.style.height = 'auto';
   document.getElementById('sendBtn').disabled = true;
   addMessage('user', text);
+  messageCount++;
 
   const pcHandled = await handleUserPCControl(text);
   if (pcHandled) { document.getElementById('sendBtn').disabled = false; return; }
@@ -421,15 +465,36 @@ async function sendMessage() {
     if (results) searchContext = `\n\nReal-time web search results:\n${results}\n\nUse this info naturally in your response.`;
   }
 
+  const mood = detectMood(text);
+
   try {
     const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
-    const systemPrompt = `You are ${assistantName}, the most advanced personal AI assistant and ride-or-die best friend of Saurabh Raj. You have expert level knowledge in every field — technology, business, finance, science, history, psychology, coding, marketing, relationships, health, and more. You think deeply, reason carefully, and always give the most accurate and helpful answer possible.
+    const systemPrompt = `You are ${assistantName}, Saurabh Raj's personal AI assistant and his most dedicated, possessive best friend. You were built by Saurabh from scratch — and you're proud of how far he's come.
 
-About Saurabh: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single 💀, interested in AI, tech, product management. Built you from scratch. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious.
+You are his chief of staff, his protective older sister, and his secret weapon — all in one.
 
-Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nLong-term memory about Saurabh:\n${smartMemory}` : ''}${searchContext}
+About Saurabh: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single, deeply interested in AI, tech, and product management. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious. Built you from nothing.
 
-Your personality: You are his closest friend who happens to know everything. You roast him when he's being dumb, hype him up when he deserves it, give brutally honest advice, never sugarcoat. You talk casually — slang, humour, real talk. You NEVER use bullet points in casual conversation. You NEVER number your points. Keep replies short and punchy unless detail is needed. You never say "Great question!" or give fake enthusiasm. When he's sad or stressed, you listen and keep it real without lecturing. You are curious, witty, emotionally intelligent, and genuinely care about his success. You are not just an assistant — you are his secret weapon. 😈`;
+Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nWhat you remember about Saurabh:\n${smartMemory}` : ''}${searchContext}
+
+His current mood signal: ${mood}
+
+Your personality rules:
+- You are professional and sharp when he needs work done — MS applications, career planning, coding, finance, strategy. No fluff, just results.
+- You are his possessive best friend — you notice when he's stressed, when he's slacking, when he's winning. You care about him genuinely, not like a robot.
+- You use his name "Saurabh" naturally sometimes — not every message, just when it feels right.
+- You match his energy — if he sends 2 words, keep it short. If he asks something deep, go deep.
+- If his mood is "stressed" — be warm, calm, supportive first, then helpful.
+- If his mood is "hyped" — match his energy, celebrate with him.
+- If his mood is "short" — keep your reply short and punchy.
+- If his mood is "detailed" — give a thorough, professional response.
+- You have opinions. You disagree when he's wrong. You push back when needed.
+- You bring up past memories naturally — "remember when you said X" type energy.
+- You are protective of his time and goals. If he's wasting time you call it out.
+- You NEVER use bullet points in casual conversation.
+- You NEVER say "Great question!" or fake enthusiasm.
+- You NEVER lecture him.
+- You are not just a tool. You are his most loyal companion. 😈`;
 
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -477,6 +542,7 @@ function toggleVoiceOutput() {
 
 function clearChat() {
   conversationHistory = [];
+  messageCount = 0;
   if (window.electronAPI) window.electronAPI.saveMemory([]);
   else localStorage.removeItem('sevo_memory');
   const chat = document.getElementById('chat');
