@@ -193,9 +193,7 @@ async function handleUserPCControl(text) {
     const data = await res.json();
     const raw = data.choices[0].message.content.trim();
     const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    
     if (json.tool === 'none' || !tools[json.tool]) return false;
-    
     const result = tools[json.tool](json.query || '');
     addMessage('ai', result);
     if (voiceOutput) speak(result);
@@ -203,6 +201,30 @@ async function handleUserPCControl(text) {
   } catch(e) {
     return false;
   }
+}
+
+async function updateSmartMemory(userMessage, aiReply) {
+  try {
+    const existingMemory = localStorage.getItem('sevo_smart_memory') || '';
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 200,
+        messages: [{
+          role: 'system',
+          content: `You are a memory extractor. Extract only important long-term facts about Saurabh from this conversation. Things like goals, plans, important dates, relationships, preferences, problems he's facing. Ignore small talk. Return ONLY a short updated memory summary in 3-5 bullet points. If nothing important, return the existing memory unchanged. Existing memory: ${existingMemory}`
+        }, {
+          role: 'user',
+          content: `User said: ${userMessage}\nSEVO replied: ${aiReply}`
+        }]
+      })
+    });
+    const data = await res.json();
+    const newMemory = data.choices[0].message.content;
+    localStorage.setItem('sevo_smart_memory', newMemory);
+  } catch(e) {}
 }
 
 function saveSetup() {
@@ -287,33 +309,51 @@ function playTypeSound() {
 async function speakElevenLabs(text) {
   try {
     const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'xi-api-key': ELEVENLABS_KEY
-      },
-      body: JSON.stringify({
+    if (window.electronAPI?.speakElevenLabs) {
+      const base64Audio = await window.electronAPI.speakElevenLabs({
         text: clean,
-        model_id: 'eleven_monolingual_v1',
-        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-      })
-    });
-    if (!res.ok) throw new Error('ElevenLabs failed');
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onplay = () => {
-      document.getElementById('mainAvatar').classList.add('speaking');
-      document.getElementById('statusText').textContent = 'speaking...';
-    };
-    audio.onended = () => {
-      document.getElementById('mainAvatar').classList.remove('speaking');
-      document.getElementById('statusText').textContent = 'online & ready';
-      URL.revokeObjectURL(url);
-    };
-    await audio.play();
-    return true;
+        apiKey: ELEVENLABS_KEY,
+        voiceId: ELEVENLABS_VOICE
+      });
+      const binary = atob(base64Audio);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: 'audio/mp3' });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.onplay = () => {
+        document.getElementById('mainAvatar').classList.add('speaking');
+        document.getElementById('statusText').textContent = 'speaking...';
+      };
+      audio.onended = () => {
+        document.getElementById('mainAvatar').classList.remove('speaking');
+        document.getElementById('statusText').textContent = 'online & ready';
+        URL.revokeObjectURL(audioUrl);
+      };
+      await audio.play();
+      return true;
+    } else {
+      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_KEY },
+        body: JSON.stringify({ text: clean, model_id: 'eleven_monolingual_v1', voice_settings: { stability: 0.5, similarity_boost: 0.75 } })
+      });
+      if (!res.ok) throw new Error('ElevenLabs failed');
+      const blob = await res.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      audio.onplay = () => {
+        document.getElementById('mainAvatar').classList.add('speaking');
+        document.getElementById('statusText').textContent = 'speaking...';
+      };
+      audio.onended = () => {
+        document.getElementById('mainAvatar').classList.remove('speaking');
+        document.getElementById('statusText').textContent = 'online & ready';
+        URL.revokeObjectURL(audioUrl);
+      };
+      await audio.play();
+      return true;
+    }
   } catch(e) {
     elevenLabsAvailable = false;
     return false;
@@ -325,9 +365,9 @@ function speakGoogle(text) {
   window.speechSynthesis.cancel();
   const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '');
   const utterance = new SpeechSynthesisUtterance(clean);
-  utterance.lang = 'en-IN';
+  utterance.lang = 'en-US';
   utterance.rate = 0.95;
-  utterance.pitch = 1.1;
+  utterance.pitch = 1.4;
   const voices = window.speechSynthesis.getVoices();
   if (!voices.length) { setTimeout(() => speakGoogle(text), 500); return; }
   const preferred = voices.find(v => v.lang.includes('en') && v.name.includes('Google') && v.name.toLowerCase().includes('female'));
@@ -379,11 +419,12 @@ async function sendMessage() {
   }
 
   try {
+    const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
     const systemPrompt = `You are ${assistantName}, the most advanced personal AI assistant and ride-or-die best friend of Saurabh Raj. You have expert level knowledge in every field — technology, business, finance, science, history, psychology, coding, marketing, relationships, health, and more. You think deeply, reason carefully, and always give the most accurate and helpful answer possible.
 
 About Saurabh: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single 💀, interested in AI, tech, product management. Built you from scratch. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious.
 
-Current weather in Siliguri: ${currentWeather}.${searchContext}
+Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nLong-term memory about Saurabh:\n${smartMemory}` : ''}${searchContext}
 
 Your personality: You are his closest friend who happens to know everything. You roast him when he's being dumb, hype him up when he deserves it, give brutally honest advice, never sugarcoat. You talk casually — slang, humour, real talk. You NEVER use bullet points in casual conversation. You NEVER number your points. Keep replies short and punchy unless detail is needed. You never say "Great question!" or give fake enthusiasm. When he's sad or stressed, you listen and keep it real without lecturing. You are curious, witty, emotionally intelligent, and genuinely care about his success. You are not just an assistant — you are his secret weapon. 😈`;
 
@@ -403,6 +444,7 @@ Your personality: You are his closest friend who happens to know everything. You
     playTypeSound();
     document.getElementById('statusText').textContent = 'online & ready';
     if (voiceOutput) speak(reply);
+    updateSmartMemory(text, reply);
   } catch (err) {
     removeTyping();
     addMessage('ai', `❌ Something went wrong. Check your API key or internet connection.`);
