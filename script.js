@@ -199,6 +199,11 @@ function needsSearch(text) {
   return keywords.some(k => lower.includes(k));
 }
 
+async function executeTool(toolName, query, tools) {
+  if (!tools[toolName]) return null;
+  return await tools[toolName](query || '');
+}
+
 async function handleUserPCControl(text) {
   const personalKeywords = ['do i have', 'what do i', 'remind me', 'my deadline', 'my goal', 'my plan', 'what about me', 'do you know me', 'what do you know', 'my ms', 'my application', 'my interview', 'my exam', 'my schedule', 'am i', 'should i', 'my life', 'my college', 'my career'];
   if (personalKeywords.some(k => text.toLowerCase().includes(k))) return false;
@@ -245,10 +250,15 @@ async function handleUserPCControl(text) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 100,
+        max_tokens: 200,
         messages: [{
           role: 'system',
-          content: `You are a tool detector. If the user wants to open an app, search something, or control their PC, respond with ONLY a JSON object. Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute. For searches use {"tool": "search_youtube", "query": "lofi beats"}. If no tool matches, respond with {"tool": "none"}.`
+          content: `You are a tool detector. The user may want to do ONE or MULTIPLE things at once. Respond with ONLY a JSON array of actions like:
+[{"tool": "open_youtube"}, {"tool": "search_youtube", "query": "lofi beats"}]
+or for single action:
+[{"tool": "open_google"}]
+Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
+If no tool matches at all, respond with [{"tool": "none"}].`
         }, {
           role: 'user',
           content: text
@@ -257,11 +267,23 @@ async function handleUserPCControl(text) {
     });
     const data = await res.json();
     const raw = data.choices[0].message.content.trim();
-    const json = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    if (json.tool === 'none' || !tools[json.tool]) return false;
-    const result = await tools[json.tool](json.query || '');
-    addMessage('ai', result);
-    if (voiceOutput) speak(result);
+    const actions = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    if (!actions.length || actions[0].tool === 'none') return false;
+
+    const results = [];
+    for (const action of actions) {
+      if (tools[action.tool]) {
+        const result = await executeTool(action.tool, action.query, tools);
+        if (result) results.push(result);
+      }
+    }
+
+    if (results.length === 0) return false;
+
+    const combined = results.join(' · ');
+    addMessage('ai', combined);
+    if (voiceOutput) speak(combined);
     return true;
   } catch(e) {
     return false;
