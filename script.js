@@ -173,6 +173,7 @@ function getWeatherIcon(condition) {
   };
   return icons[condition] || '🌤️';
 }
+
 async function searchYouTube(query) {
   try {
     const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=${YOUTUBE_KEY}&type=video&maxResults=1`);
@@ -186,6 +187,7 @@ async function searchYouTube(query) {
     return null;
   } catch(e) { return null; }
 }
+
 async function searchWeb(query) {
   try {
     const res = await fetch('https://api.tavily.com/search', {
@@ -419,12 +421,8 @@ async function speakElevenLabs(text) {
   try {
     const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
     if (window.electronAPI?.speakElevenLabs) {
-      const fileUrl = await window.electronAPI.speakElevenLabs({
-        text: clean,
-        apiKey: ELEVENLABS_KEY,
-        voiceId: ELEVENLABS_VOICE
-      });
-      const audio = new Audio(fileUrl);
+      const base64 = await window.electronAPI.speakElevenLabs({ text: clean });
+      const audio = new Audio('data:audio/mp3;base64,' + base64);
       audio.onplay = () => {
         document.getElementById('mainAvatar').classList.add('speaking');
         document.getElementById('statusText').textContent = 'speaking...';
