@@ -10,6 +10,7 @@ const WEATHER_KEY = '74eee2de5a866a457a2ea6f13028fce3';
 const TAVILY_KEY = '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';
 const ELEVENLABS_KEY = 'sk_610e0c49215911602b66847c4e18f54d8958ecd695875e01';
 const ELEVENLABS_VOICE = '21m00Tcm4TlvDq8ikWAM';
+const YOUTUBE_KEY = 'AIzaSyANn0l8b2PAqBrEAQX9u2syjUDmIVORXyE';
 const CITY = 'Siliguri';
 let currentWeather = '';
 let elevenLabsAvailable = true;
@@ -172,7 +173,19 @@ function getWeatherIcon(condition) {
   };
   return icons[condition] || '🌤️';
 }
-
+async function searchYouTube(query) {
+  try {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=${YOUTUBE_KEY}&type=video&maxResults=1`);
+    const data = await res.json();
+    if (data.items && data.items.length > 0) {
+      const video = data.items[0];
+      const videoId = video.id.videoId;
+      const title = video.snippet.title;
+      return { videoId, title, url: `https://www.youtube.com/watch?v=${videoId}` };
+    }
+    return null;
+  } catch(e) { return null; }
+}
 async function searchWeb(query) {
   try {
     const res = await fetch('https://api.tavily.com/search', {
@@ -218,6 +231,14 @@ async function handleUserPCControl(text) {
     search_youtube: (q) => { window.open(`https://youtube.com/results?search_query=${encodeURIComponent(q)}`, '_blank'); return `Searching YouTube for "${q}" 🎬`; },
     search_google: (q) => { window.open(`https://google.com/search?q=${encodeURIComponent(q)}`, '_blank'); return `Searching Google for "${q}" 🔍`; },
     play_music: (q) => { window.open(`https://open.spotify.com/search/${encodeURIComponent(q)}`, '_blank'); return `Playing "${q}" on Spotify 🎵`; },
+    play_youtube: async (q) => {
+      const result = await searchYouTube(q);
+      if (result) {
+        window.open(result.url, '_blank');
+        return `Playing "${result.title}" on YouTube 🎵`;
+      }
+      return `Couldn't find "${q}" on YouTube 😕`;
+    },
     open_notepad: async () => { await window.electronAPI?.runPC('notepad.exe'); return 'Opening Notepad 📝'; },
     open_calculator: async () => { await window.electronAPI?.runPC('calc.exe'); return 'Opening Calculator 🧮'; },
     open_explorer: async () => { await window.electronAPI?.runPC('explorer.exe'); return 'Opening File Explorer 📁'; },
@@ -257,7 +278,7 @@ async function handleUserPCControl(text) {
 [{"tool": "open_youtube"}, {"tool": "search_youtube", "query": "lofi beats"}]
 or for single action:
 [{"tool": "open_google"}]
-Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
+Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, play_youtube, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
 If no tool matches at all, respond with [{"tool": "none"}].`
         }, {
           role: 'user',
