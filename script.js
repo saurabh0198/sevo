@@ -278,7 +278,7 @@ async function handleUserPCControl(text) {
 [{"tool": "open_youtube"}, {"tool": "search_youtube", "query": "lofi beats"}]
 or for single action:
 [{"tool": "open_google"}]
-Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, play_youtube, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
+Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, play_youtube (ALWAYS include query for this tool), open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
 If no tool matches at all, respond with [{"tool": "none"}].`
         }, {
           role: 'user',
