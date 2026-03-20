@@ -321,6 +321,42 @@ async function updateSmartMemory(userMessage, aiReply) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
+        max_tokens: 500,
+        messages: [{
+          role: 'system',
+          content: `You are SEVO's memory manager. Your job is to maintain a detailed, organized, PERMANENT memory about Saurabh Raj.
+
+RULES:
+- NEVER delete existing memories unless Saurabh explicitly says to forget something
+- ALWAYS append new important information to existing memory
+- Organize memory into these categories: 🎯 Goals & Plans, 📅 Important Dates, ❤️ Preferences & Personality, ⚠️ Problems & Challenges, 🏆 Achievements & Wins, 🧠 Patterns & Habits
+- Extract ONLY meaningful long-term facts — ignore small talk
+- Keep each point concise but specific
+- If nothing new to add, return existing memory UNCHANGED
+
+Current memory:
+${existingMemory}
+
+New conversation to analyze:
+User: ${userMessage}
+SEVO: ${aiReply}
+
+Return the COMPLETE updated memory with all categories. Keep everything from before and add new insights.`
+        }]
+      })
+    });
+    const data = await res.json();
+    const newMemory = data.choices[0].message.content;
+    localStorage.setItem('sevo_smart_memory', newMemory);
+  } catch(e) {}
+}
+  try {
+    const existingMemory = localStorage.getItem('sevo_smart_memory') || '';
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
         max_tokens: 200,
         messages: [{
           role: 'system',
@@ -335,7 +371,7 @@ async function updateSmartMemory(userMessage, aiReply) {
     const newMemory = data.choices[0].message.content;
     localStorage.setItem('sevo_smart_memory', newMemory);
   } catch(e) {}
-}
+
 
 function saveSetup() {
   const key = document.getElementById('apiKeyInput').value.trim();
