@@ -291,9 +291,7 @@ If no tool matches at all, respond with [{"tool": "none"}].`
     const data = await res.json();
     const raw = data.choices[0].message.content.trim();
     const actions = JSON.parse(raw.replace(/```json|```/g, '').trim());
-
     if (!actions.length || actions[0].tool === 'none') return false;
-
     const results = [];
     for (const action of actions) {
       if (tools[action.tool]) {
@@ -301,9 +299,7 @@ If no tool matches at all, respond with [{"tool": "none"}].`
         if (result) results.push(result);
       }
     }
-
     if (results.length === 0) return false;
-
     const combined = results.join(' · ');
     addMessage('ai', combined);
     if (voiceOutput) speak(combined);
@@ -350,28 +346,6 @@ Return the COMPLETE updated memory with all categories. Keep everything from bef
     localStorage.setItem('sevo_smart_memory', newMemory);
   } catch(e) {}
 }
-  try {
-    const existingMemory = localStorage.getItem('sevo_smart_memory') || '';
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        max_tokens: 200,
-        messages: [{
-          role: 'system',
-          content: `You are a memory extractor. Extract only important long-term facts about Saurabh from this conversation. Things like goals, plans, important dates, relationships, preferences, problems he's facing. Ignore small talk. Return ONLY a short updated memory summary in 3-5 bullet points. If nothing important, return the existing memory unchanged. Existing memory: ${existingMemory}`
-        }, {
-          role: 'user',
-          content: `User said: ${userMessage}\nSEVO replied: ${aiReply}`
-        }]
-      })
-    });
-    const data = await res.json();
-    const newMemory = data.choices[0].message.content;
-    localStorage.setItem('sevo_smart_memory', newMemory);
-  } catch(e) {}
-
 
 function saveSetup() {
   const key = document.getElementById('apiKeyInput').value.trim();
