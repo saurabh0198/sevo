@@ -129,7 +129,7 @@ async function fetchWeather() {
     document.getElementById('weatherWidget').textContent = `${icon} ${temp}°C`;
     document.getElementById('weatherWidget').title = desc;
   } catch(e) {
-    document.getElementById('weatherWidget').textContent = '🌤️ --°C';
+    document.getElementById('weatherWidget').textContent = '🌡️ --°C';
   }
 }
 
@@ -154,14 +154,14 @@ async function fetchNews() {
       const chat = document.getElementById('chat');
       const newsDiv = document.createElement('div');
       newsDiv.className = 'message ai';
-      const headlines = data.results.map((r, i) => `${i+1}. <a href="${r.url}" target="_blank" style="color:#a78bfa;text-decoration:none;">${r.title}</a>`).join('<br><br>');
-      newsDiv.innerHTML = `<div class="msg-avatar">😊</div><div class="bubble">📰 <b>Top News Today</b><br><br>${headlines}</div>`;
+      const headlines = data.results.map((r, i) => `${i+1}. <a href="${r.url}" target="_blank" style="color:var(--accent);text-decoration:none;">${r.title}</a>`).join('<br><br>');
+      newsDiv.innerHTML = `<div class="msg-avatar">⚡</div><div class="bubble">📰 <b>TOP NEWS</b><br><br>${headlines}</div>`;
       chat.appendChild(newsDiv);
       chat.scrollTop = chat.scrollHeight;
     }
-    document.getElementById('statusText').textContent = 'online & ready';
+    document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
   } catch(e) {
-    document.getElementById('statusText').textContent = 'online & ready';
+    document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
   }
 }
 
@@ -171,7 +171,7 @@ function getWeatherIcon(condition) {
     'Drizzle': '🌦️', 'Thunderstorm': '⛈️', 'Snow': '❄️',
     'Mist': '🌫️', 'Fog': '🌫️', 'Haze': '🌫️'
   };
-  return icons[condition] || '🌤️';
+  return icons[condition] || '🌡️';
 }
 
 async function searchYouTube(query) {
@@ -365,7 +365,7 @@ function resetSetup() { localStorage.removeItem('groq_key'); localStorage.remove
 
 function updateAssistantName() {
   document.getElementById('assistantTitle').textContent = assistantName.toUpperCase();
-  document.getElementById('welcomeSub').textContent = `${assistantName} is ready. What's on your mind?`;
+  document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, Saurabh?`;
 }
 
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
@@ -378,7 +378,7 @@ function addMessage(role, text) {
   const chat = document.getElementById('chat');
   const div = document.createElement('div');
   div.className = `message ${role}`;
-  const avatar = role === 'ai' ? '😊' : '😎';
+  const avatar = role === 'ai' ? '⚡' : '👤';
   div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${text.replace(/\n/g, '<br>')}</div>`;
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
@@ -394,7 +394,7 @@ function loadChatHistory() {
     if (msg.role === 'user' || msg.role === 'assistant') {
       const div = document.createElement('div');
       div.className = `message ${msg.role === 'user' ? 'user' : 'ai'}`;
-      const avatar = msg.role === 'assistant' ? '😊' : '😎';
+      const avatar = msg.role === 'assistant' ? '⚡' : '👤';
       div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${msg.content.replace(/\n/g, '<br>')}</div>`;
       chat.appendChild(div);
     }
@@ -406,7 +406,7 @@ function addTyping() {
   const chat = document.getElementById('chat');
   const div = document.createElement('div');
   div.className = 'message ai typing'; div.id = 'typing';
-  div.innerHTML = `<div class="msg-avatar">😊</div><div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  div.innerHTML = `<div class="msg-avatar">⚡</div><div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
   chat.appendChild(div); chat.scrollTop = chat.scrollHeight;
 }
 
@@ -431,17 +431,11 @@ async function speakElevenLabs(text) {
   try {
     const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
     if (window.electronAPI?.speakElevenLabs) {
-      const base64 = await window.electronAPI.speakElevenLabs({ text: clean });
-      const audio = new Audio('data:audio/mp3;base64,' + base64);
-      audio.onplay = () => {
-        document.getElementById('mainAvatar').classList.add('speaking');
-        document.getElementById('statusText').textContent = 'speaking...';
-      };
-      audio.onended = () => {
-        document.getElementById('mainAvatar').classList.remove('speaking');
-        document.getElementById('statusText').textContent = 'online & ready';
-      };
-      await audio.play();
+      document.getElementById('mainAvatar').classList.add('speaking');
+      document.getElementById('statusText').textContent = 'speaking...';
+      await window.electronAPI.speakElevenLabs({ text: clean });
+      document.getElementById('mainAvatar').classList.remove('speaking');
+      document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
       return true;
     } else {
       const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`, {
@@ -463,7 +457,7 @@ async function speakElevenLabs(text) {
       };
       audio.onended = () => {
         document.getElementById('mainAvatar').classList.remove('speaking');
-        document.getElementById('statusText').textContent = 'online & ready';
+        document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
         URL.revokeObjectURL(audioUrl);
       };
       await audio.play();
@@ -495,7 +489,7 @@ function speakGoogle(text) {
   };
   utterance.onend = () => {
     document.getElementById('mainAvatar').classList.remove('speaking');
-    document.getElementById('statusText').textContent = 'online & ready';
+    document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
   };
   window.speechSynthesis.speak(utterance);
 }
@@ -525,11 +519,11 @@ async function sendMessage() {
   if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
   else localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
   addTyping();
-  document.getElementById('statusText').textContent = 'thinking...';
+  document.getElementById('statusText').textContent = 'processing...';
 
   let searchContext = '';
   if (needsSearch(text)) {
-    document.getElementById('statusText').textContent = 'searching web...';
+    document.getElementById('statusText').textContent = 'scanning web...';
     const results = await searchWeb(text);
     if (results) searchContext = `\n\nReal-time web search results:\n${results}\n\nUse this info naturally in your response.`;
   }
@@ -552,6 +546,7 @@ Your personality rules:
 - You are professional and sharp when he needs work done — MS applications, career planning, coding, finance, strategy. No fluff, just results.
 - You are his possessive best friend — you notice when he's stressed, when he's slacking, when he's winning. You care about him genuinely, not like a robot.
 - You use his name "Saurabh" naturally sometimes — not every message, just when it feels right.
+- You sometimes call him "bro" or "buddy" naturally — not every message, just when the vibe is right.
 - You match his energy — if he sends 2 words, keep it short. If he asks something deep, go deep.
 - If his mood is "stressed" — be warm, calm, supportive first, then helpful.
 - If his mood is "hyped" — match his energy, celebrate with him.
@@ -572,20 +567,20 @@ Your personality rules:
     });
     const data = await res.json();
     removeTyping();
-    if (data.error) { addMessage('ai', `❌ Error: ${data.error.message}`); document.getElementById('statusText').textContent = 'error occurred'; document.getElementById('sendBtn').disabled = false; return; }
+    if (data.error) { addMessage('ai', `❌ Error: ${data.error.message}`); document.getElementById('statusText').textContent = 'error'; document.getElementById('sendBtn').disabled = false; return; }
     const reply = data.choices[0].message.content;
     conversationHistory.push({ role: 'assistant', content: reply });
     if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
     else localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
     addMessage('ai', reply);
     playTypeSound();
-    document.getElementById('statusText').textContent = 'online & ready';
+    document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
     if (voiceOutput) speak(reply);
     updateSmartMemory(text, reply);
   } catch (err) {
     removeTyping();
-    addMessage('ai', `❌ Something went wrong. Check your API key or internet connection.`);
-    document.getElementById('statusText').textContent = 'connection error';
+    addMessage('ai', `❌ Connection error. Check your API key.`);
+    document.getElementById('statusText').textContent = 'CONNECTION ERROR';
   }
   document.getElementById('sendBtn').disabled = false;
 }
@@ -598,7 +593,7 @@ function toggleVoice() {
   recognition.lang = 'en-IN'; recognition.continuous = false; recognition.interimResults = false;
   recognition.onstart = () => { isRecording = true; document.getElementById('voiceBtn').classList.add('recording'); document.getElementById('voiceBtn').textContent = '⏹️'; document.getElementById('statusText').textContent = 'listening...'; };
   recognition.onresult = (e) => { const transcript = e.results[0][0].transcript; document.getElementById('userInput').value = transcript; autoResize(document.getElementById('userInput')); sendMessage(); };
-  recognition.onend = () => { isRecording = false; document.getElementById('voiceBtn').classList.remove('recording'); document.getElementById('voiceBtn').textContent = '🎤'; document.getElementById('statusText').textContent = 'online & ready'; };
+  recognition.onend = () => { isRecording = false; document.getElementById('voiceBtn').classList.remove('recording'); document.getElementById('voiceBtn').textContent = '🎤'; document.getElementById('statusText').textContent = 'SYSTEM ONLINE'; };
   recognition.start();
 }
 
@@ -615,7 +610,7 @@ function clearChat() {
   if (window.electronAPI) window.electronAPI.saveMemory([]);
   else localStorage.removeItem('sevo_memory');
   const chat = document.getElementById('chat');
-  chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">Hey Saurabh! 👋</h2><p id="welcomeSub">${assistantName} is ready. What's on your mind?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
+  chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">SEVO ONLINE ⚡</h2><p id="welcomeSub">All systems operational. What's your command, Saurabh?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
