@@ -695,3 +695,46 @@ footer::before {
   border-color: var(--accent);
   box-shadow: 0 0 8px var(--glow);
 }
+/* === SEVO v2.1 UPGRADES === */
+
+/* Scanline effect */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 180, 216, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 180, 216, 0.025) 1px, transparent 1px),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 180, 216, 0.012) 2px,
+      rgba(0, 180, 216, 0.012) 4px
+    );
+  background-size: 50px 50px, 50px 50px, 100% 4px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Avatar breathing glow */
+.avatar {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 15px var(--glow), inset 0 0 15px #00b4d808; }
+  50% { box-shadow: 0 0 35px var(--glow2), 0 0 60px #00b4d820, inset 0 0 20px #00b4d812; }
+}
+
+/* News card glow border */
+.news-card, #newsCard, .news-widget, .news-container {
+  border: 1px solid var(--accent2) !important;
+  box-shadow: 0 0 20px var(--glow), inset 0 0 30px #00b4d805;
+  animation: borderPulse 4s ease-in-out infinite;
+}
+
+@keyframes borderPulse {
+  0%, 100% { box-shadow: 0 0 10px var(--glow), inset 0 0 20px #00b4d805; }
+  50% { box-shadow: 0 0 25px var(--glow2), inset 0 0 30px #00b4d808; }
+}
