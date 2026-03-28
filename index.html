@@ -3,53 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SAURABH'S AI</title>
+<title>SEVO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div id="setup">
   <div class="setup-card">
-    <div class="big-icon">🤖</div>
-    <h2>SETUP YOUR AI</h2>
-    <p>Enter your Groq API key to activate your personal assistant.</p>
-    <input type="password" class="setup-input" id="apiKeyInput" placeholder="Paste your Groq API key here..." />
-    <input type="text" class="setup-input" id="assistantName" placeholder="Give your assistant a name... (e.g. SEVO)" />
-    <button class="setup-btn" onclick="saveSetup()">ACTIVATE ASSISTANT 🚀</button>
+    <div class="big-icon">⚡</div>
+    <h2>SEVO SYSTEM</h2>
+    <p>Authorization required. Enter your Groq API key to initialize the system.</p>
+    <input type="password" class="setup-input" id="apiKeyInput" placeholder="// paste authorization key..." />
+    <input type="text" class="setup-input" id="assistantName" placeholder="// assign system name... (e.g. SEVO)" />
+    <button class="setup-btn" onclick="saveSetup()">INITIALIZE SYSTEM ⚡</button>
   </div>
 </div>
 
 <div class="titlebar">
-  <div class="titlebar-drag">SEVO</div>
+  <div class="titlebar-drag">S · E · V · O</div>
   <div class="titlebar-controls">
     <button class="tb-btn minimize" onclick="window.electronAPI?.minimizeWindow()">─</button>
     <button class="tb-btn close" onclick="window.electronAPI?.closeWindow()">✕</button>
   </div>
 </div>
 
+<div class="statusbar">
+  <div class="statusbar-left">SEVO v2.0</div>
+  <div class="statusbar-center" id="statusText">SYSTEM ONLINE</div>
+  <div class="statusbar-right">ACTIVE</div>
+</div>
+
 <header>
   <div class="header-left">
-    <div class="avatar" id="mainAvatar">😊</div>
+    <div class="avatar-wrapper">
+      <div class="avatar-ring avatar-ring-1"></div>
+      <div class="avatar-ring avatar-ring-2"></div>
+      <div class="avatar-ring avatar-ring-3"></div>
+      <div class="avatar" id="mainAvatar">⚡</div>
+    </div>
     <div class="header-info">
-      <h1 id="assistantTitle">MY ASSISTANT</h1>
-      <div class="status" id="statusText">online & ready</div>
+      <h1 id="assistantTitle">S E V O</h1>
+      <div class="status">ONLINE & READY</div>
     </div>
   </div>
   <div class="header-right">
-    <div id="weatherWidget" class="weather-widget">🌤️ --°C</div>
-    <button class="icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" title="Toggle voice output">🔊</button>
-    <button class="icon-btn" onclick="clearChat()" title="Clear chat">🗑️</button>
-    <button class="icon-btn" onclick="resetSetup()" title="Change API key">⚙️</button>
+    <div id="weatherWidget" class="weather-widget">🌡️ --°C</div>
+    <button class="icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" title="Toggle voice">🔊</button>
+    <button class="icon-btn" onclick="clearChat()" title="Clear">🗑️</button>
+    <button class="icon-btn" onclick="resetSetup()" title="Settings">⚙️</button>
   </div>
 </header>
 
 <div id="chat">
   <div class="welcome" id="welcome">
-    <h2 id="welcomeTitle">Hey Saurabh! 👋</h2>
-    <p id="welcomeSub">Your personal AI is ready. What's on your mind?</p>
+    <h2 id="welcomeTitle">SEVO ONLINE ⚡</h2>
+    <p id="welcomeSub">All systems operational. What's your command, Saurabh?</p>
     <div class="suggestions">
       <div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div>
       <div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div>
@@ -61,13 +72,14 @@
 
 <footer>
   <div class="input-wrapper">
-    <textarea id="userInput" placeholder="Talk to your AI..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <span class="input-prefix">&gt;</span>
+    <textarea id="userInput" placeholder="enter command..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
     <div class="input-actions">
       <button class="action-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎤</button>
       <button class="action-btn" id="sendBtn" onclick="sendMessage()">➤</button>
     </div>
   </div>
-  <div class="hint">Press Enter to send · Shift+Enter for new line · 🎤 for voice input</div>
+  <div class="hint">ENTER · send &nbsp;|&nbsp; SHIFT+ENTER · new line &nbsp;|&nbsp; 🎤 · voice</div>
 </footer>
 
 <script src="script.js"></script>
