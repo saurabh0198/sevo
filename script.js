@@ -16,6 +16,9 @@ let currentWeather = '';
 let elevenLabsAvailable = true;
 let messageCount = 0;
 
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
 window.onload = async () => {
   if (apiKey) { hideSetup(); updateAssistantName(); startWakeWord(); }
   fetchWeather();
@@ -29,6 +32,58 @@ window.onload = async () => {
   }
 };
 
+// ─────────────────────────────────────────────
+// SMART ROUTER — Groq decides what to do first
+// ─────────────────────────────────────────────
+async function routeMessage(text) {
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 10,
+        messages: [{
+          role: 'system',
+          content: `You are a message router. Classify the user message into ONE of these categories and respond with ONLY the category word, nothing else:
+
+"chat" — general conversation, opinions, suggestions, recommendations, jokes, personal questions, creative tasks, anything AI can answer from its own knowledge
+"search" — needs real-time or time-sensitive data: live news, current prices, today's weather, live scores, recent events, anything that requires up-to-date info from the internet
+"youtube" — user wants to play or find a video or music on YouTube
+"pc" — user wants to control the computer: open apps, volume control, screenshot, shutdown, file explorer etc.
+
+Examples:
+"suggest me a movie" → chat
+"what movies are trending this week" → search
+"what's the weather today" → search
+"tell me a joke" → chat
+"play lofi beats" → youtube
+"play something chill on youtube" → youtube
+"open notepad" → pc
+"take a screenshot" → pc
+"who is Elon Musk" → chat
+"latest IPL score today" → search
+"what should I eat for dinner" → chat
+"volume up" → pc
+"what are some good books to read" → chat
+"news today" → search`
+        }, {
+          role: 'user',
+          content: text
+        }]
+      })
+    });
+    const data = await res.json();
+    const route = data.choices[0].message.content.trim().toLowerCase().replace(/[^a-z]/g, '');
+    return ['chat', 'search', 'youtube', 'pc'].includes(route) ? route : 'chat';
+  } catch(e) {
+    return 'chat'; // default to chat if routing fails
+  }
+}
+
+// ─────────────────────────────────────────────
+// PROACTIVE GREETING
+// ─────────────────────────────────────────────
 async function proactiveGreeting() {
   const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
   if (!smartMemory || conversationHistory.length > 0) return;
@@ -55,6 +110,9 @@ async function proactiveGreeting() {
   } catch(e) {}
 }
 
+// ─────────────────────────────────────────────
+// MOOD DETECTION
+// ─────────────────────────────────────────────
 function detectMood(text) {
   const stressed = ['stressed', 'tired', 'exhausted', 'worried', 'anxious', 'scared', 'nervous', 'help', 'cant', "can't", 'fail', 'failing', 'bad', 'worst', 'hate', 'sad', 'depressed', 'lonely'];
   const hyped = ['yes', 'yess', 'lets go', "let's go", 'finally', 'done', 'finished', 'achieved', 'got it', 'won', 'passed', 'happy', 'excited', 'amazing', 'great', 'awesome'];
@@ -66,6 +124,9 @@ function detectMood(text) {
   return 'normal';
 }
 
+// ─────────────────────────────────────────────
+// WAKE WORD
+// ─────────────────────────────────────────────
 function startWakeWord() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -118,6 +179,9 @@ function playWakeSound() {
   } catch(e) {}
 }
 
+// ─────────────────────────────────────────────
+// WEATHER
+// ─────────────────────────────────────────────
 async function fetchWeather() {
   try {
     const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${WEATHER_KEY}&units=metric`);
@@ -133,6 +197,18 @@ async function fetchWeather() {
   }
 }
 
+function getWeatherIcon(condition) {
+  const icons = {
+    'Clear': '☀️', 'Clouds': '☁️', 'Rain': '🌧️',
+    'Drizzle': '🌦️', 'Thunderstorm': '⛈️', 'Snow': '❄️',
+    'Mist': '🌫️', 'Fog': '🌫️', 'Haze': '🌫️'
+  };
+  return icons[condition] || '🌡️';
+}
+
+// ─────────────────────────────────────────────
+// NEWS
+// ─────────────────────────────────────────────
 async function fetchNews() {
   try {
     document.getElementById('statusText').textContent = 'fetching news...';
@@ -165,15 +241,9 @@ async function fetchNews() {
   }
 }
 
-function getWeatherIcon(condition) {
-  const icons = {
-    'Clear': '☀️', 'Clouds': '☁️', 'Rain': '🌧️',
-    'Drizzle': '🌦️', 'Thunderstorm': '⛈️', 'Snow': '❄️',
-    'Mist': '🌫️', 'Fog': '🌫️', 'Haze': '🌫️'
-  };
-  return icons[condition] || '🌡️';
-}
-
+// ─────────────────────────────────────────────
+// YOUTUBE
+// ─────────────────────────────────────────────
 async function searchYouTube(query) {
   try {
     const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=${YOUTUBE_KEY}&type=video&maxResults=1`);
@@ -188,6 +258,9 @@ async function searchYouTube(query) {
   } catch(e) { return null; }
 }
 
+// ─────────────────────────────────────────────
+// WEB SEARCH
+// ─────────────────────────────────────────────
 async function searchWeb(query) {
   try {
     const res = await fetch('https://api.tavily.com/search', {
@@ -208,21 +281,15 @@ async function searchWeb(query) {
   } catch(e) { return null; }
 }
 
-function needsSearch(text) {
-  const keywords = ['today', 'now', 'current', 'latest', 'news', 'price', 'score', 'weather', 'who is', 'what is', 'when is', 'how much', 'rupee', 'stock', 'match', 'ipl', 'cricket', '2025', '2026'];
-  const lower = text.toLowerCase();
-  return keywords.some(k => lower.includes(k));
-}
-
+// ─────────────────────────────────────────────
+// PC CONTROL
+// ─────────────────────────────────────────────
 async function executeTool(toolName, query, tools) {
   if (!tools[toolName]) return null;
   return await tools[toolName](query || '');
 }
 
 async function handleUserPCControl(text) {
-  const personalKeywords = ['do i have', 'what do i', 'remind me', 'my deadline', 'my goal', 'my plan', 'what about me', 'do you know me', 'what do you know', 'my ms', 'my application', 'my interview', 'my exam', 'my schedule', 'am i', 'should i', 'my life', 'my college', 'my career'];
-  if (personalKeywords.some(k => text.toLowerCase().includes(k))) return false;
-
   const tools = {
     open_youtube: () => { window.open('https://youtube.com', '_blank'); return 'Opening YouTube 🎬'; },
     open_google: () => { window.open('https://google.com', '_blank'); return 'Opening Google 🔍'; },
@@ -233,14 +300,6 @@ async function handleUserPCControl(text) {
     search_youtube: (q) => { window.open(`https://youtube.com/results?search_query=${encodeURIComponent(q)}`, '_blank'); return `Searching YouTube for "${q}" 🎬`; },
     search_google: (q) => { window.open(`https://google.com/search?q=${encodeURIComponent(q)}`, '_blank'); return `Searching Google for "${q}" 🔍`; },
     play_music: (q) => { window.open(`https://open.spotify.com/search/${encodeURIComponent(q)}`, '_blank'); return `Playing "${q}" on Spotify 🎵`; },
-    play_youtube: async (q) => {
-      const result = await searchYouTube(q);
-      if (result) {
-        window.open(result.url, '_blank');
-        return `Playing "${result.title}" on YouTube 🎵`;
-      }
-      return `Couldn't find "${q}" on YouTube 😕`;
-    },
     open_notepad: async () => { await window.electronAPI?.runPC('notepad.exe'); return 'Opening Notepad 📝'; },
     open_calculator: async () => { await window.electronAPI?.runPC('calc.exe'); return 'Opening Calculator 🧮'; },
     open_explorer: async () => { await window.electronAPI?.runPC('explorer.exe'); return 'Opening File Explorer 📁'; },
@@ -276,12 +335,10 @@ async function handleUserPCControl(text) {
         max_tokens: 200,
         messages: [{
           role: 'system',
-          content: `You are a tool detector. The user may want to do ONE or MULTIPLE things at once. Respond with ONLY a JSON array of actions like:
+          content: `You are a PC tool detector. The user wants to control their computer. Respond with ONLY a JSON array of actions like:
 [{"tool": "open_youtube"}, {"tool": "search_youtube", "query": "lofi beats"}]
-or for single action:
-[{"tool": "open_google"}]
-Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, play_youtube (ALWAYS include query for this tool), open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
-If no tool matches at all, respond with [{"tool": "none"}].`
+Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
+If no tool matches, respond with [{"tool": "none"}].`
         }, {
           role: 'user',
           content: text
@@ -309,6 +366,9 @@ If no tool matches at all, respond with [{"tool": "none"}].`
   }
 }
 
+// ─────────────────────────────────────────────
+// SMART MEMORY
+// ─────────────────────────────────────────────
 async function updateSmartMemory(userMessage, aiReply) {
   try {
     const existingMemory = localStorage.getItem('sevo_smart_memory') || '';
@@ -347,6 +407,9 @@ Return the COMPLETE updated memory with all categories. Keep everything from bef
   } catch(e) {}
 }
 
+// ─────────────────────────────────────────────
+// SETUP
+// ─────────────────────────────────────────────
 function saveSetup() {
   const key = document.getElementById('apiKeyInput').value.trim();
   const name = document.getElementById('assistantName').value.trim();
@@ -368,6 +431,9 @@ function updateAssistantName() {
   document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, Saurabh?`;
 }
 
+// ─────────────────────────────────────────────
+// UI HELPERS
+// ─────────────────────────────────────────────
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
 function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
 function sendSuggestion(el) { document.getElementById('userInput').value = el.textContent; sendMessage(); }
@@ -427,6 +493,9 @@ function playTypeSound() {
   } catch(e) {}
 }
 
+// ─────────────────────────────────────────────
+// VOICE OUTPUT — ElevenLabs + Google fallback
+// ─────────────────────────────────────────────
 async function speakElevenLabs(text) {
   try {
     const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
@@ -503,6 +572,9 @@ async function speak(text) {
   }
 }
 
+// ─────────────────────────────────────────────
+// SEND MESSAGE — main brain loop
+// ─────────────────────────────────────────────
 async function sendMessage() {
   const input = document.getElementById('userInput');
   const text = input.value.trim();
@@ -512,17 +584,42 @@ async function sendMessage() {
   addMessage('user', text);
   messageCount++;
 
-  const pcHandled = await handleUserPCControl(text);
-  if (pcHandled) { document.getElementById('sendBtn').disabled = false; return; }
+  // Step 1 — Route the message (Groq decides)
+  document.getElementById('statusText').textContent = 'thinking...';
+  const route = await routeMessage(text);
 
+  // Step 2 — PC control
+  if (route === 'pc') {
+    const pcHandled = await handleUserPCControl(text);
+    if (pcHandled) { document.getElementById('sendBtn').disabled = false; return; }
+    // if pc routing failed, fall through to chat
+  }
+
+  // Step 3 — YouTube
+  if (route === 'youtube') {
+    const match = text.match(/play (.+)/i);
+    const query = match ? match[1] : text;
+    const result = await searchYouTube(query);
+    if (result) {
+      window.open(result.url, '_blank');
+      const reply = `Playing "${result.title}" on YouTube 🎵`;
+      addMessage('ai', reply);
+      if (voiceOutput) speak(reply);
+      document.getElementById('sendBtn').disabled = false;
+      return;
+    }
+  }
+
+  // Step 4 — Add to history and start processing
   conversationHistory.push({ role: 'user', content: text });
   if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
   else localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
   addTyping();
   document.getElementById('statusText').textContent = 'processing...';
 
+  // Step 5 — Web search only if routed to search
   let searchContext = '';
-  if (needsSearch(text)) {
+  if (route === 'search') {
     document.getElementById('statusText').textContent = 'scanning web...';
     const results = await searchWeb(text);
     if (results) searchContext = `\n\nReal-time web search results:\n${results}\n\nUse this info naturally in your response.`;
@@ -530,6 +627,7 @@ async function sendMessage() {
 
   const mood = detectMood(text);
 
+  // Step 6 — Groq AI response
   try {
     const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
     const systemPrompt = `You are ${assistantName}, Saurabh Raj's personal AI assistant and his most dedicated, possessive best friend. You were built by Saurabh from scratch — and you're proud of how far he's come.
@@ -563,11 +661,20 @@ Your personality rules:
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'system', content: systemPrompt }, ...conversationHistory.slice(-20)], max_tokens: 1024 })
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'system', content: systemPrompt }, ...conversationHistory.slice(-20)],
+        max_tokens: 1024
+      })
     });
     const data = await res.json();
     removeTyping();
-    if (data.error) { addMessage('ai', `❌ Error: ${data.error.message}`); document.getElementById('statusText').textContent = 'error'; document.getElementById('sendBtn').disabled = false; return; }
+    if (data.error) {
+      addMessage('ai', `❌ Error: ${data.error.message}`);
+      document.getElementById('statusText').textContent = 'error';
+      document.getElementById('sendBtn').disabled = false;
+      return;
+    }
     const reply = data.choices[0].message.content;
     conversationHistory.push({ role: 'assistant', content: reply });
     if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
@@ -585,18 +692,44 @@ Your personality rules:
   document.getElementById('sendBtn').disabled = false;
 }
 
+// ─────────────────────────────────────────────
+// VOICE INPUT
+// ─────────────────────────────────────────────
 function toggleVoice() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) { alert('Voice input not supported! Use Chrome browser.'); return; }
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Voice input not supported! Use Chrome browser.');
+    return;
+  }
   if (isRecording) { recognition.stop(); return; }
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
-  recognition.lang = 'en-IN'; recognition.continuous = false; recognition.interimResults = false;
-  recognition.onstart = () => { isRecording = true; document.getElementById('voiceBtn').classList.add('recording'); document.getElementById('voiceBtn').textContent = '⏹️'; document.getElementById('statusText').textContent = 'listening...'; };
-  recognition.onresult = (e) => { const transcript = e.results[0][0].transcript; document.getElementById('userInput').value = transcript; autoResize(document.getElementById('userInput')); sendMessage(); };
-  recognition.onend = () => { isRecording = false; document.getElementById('voiceBtn').classList.remove('recording'); document.getElementById('voiceBtn').textContent = '🎤'; document.getElementById('statusText').textContent = 'SYSTEM ONLINE'; };
+  recognition.lang = 'en-IN';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('voiceBtn').classList.add('recording');
+    document.getElementById('voiceBtn').textContent = '⏹️';
+    document.getElementById('statusText').textContent = 'listening...';
+  };
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('userInput').value = transcript;
+    autoResize(document.getElementById('userInput'));
+    sendMessage();
+  };
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('voiceBtn').classList.remove('recording');
+    document.getElementById('voiceBtn').textContent = '🎤';
+    document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
+  };
   recognition.start();
 }
 
+// ─────────────────────────────────────────────
+// MISC
+// ─────────────────────────────────────────────
 function toggleVoiceOutput() {
   voiceOutput = !voiceOutput;
   document.getElementById('speakerBtn').textContent = voiceOutput ? '🔊' : '🔇';
