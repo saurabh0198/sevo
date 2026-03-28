@@ -49,8 +49,8 @@ async function routeMessage(text) {
 
 "chat" — general conversation, opinions, suggestions, recommendations, jokes, personal questions, creative tasks, anything AI can answer from its own knowledge
 "search" — needs real-time or time-sensitive data: live news, current prices, today's weather, live scores, recent events, anything that requires up-to-date info from the internet
-"youtube" — user wants to play or find a video or music on YouTube
-"pc" — user wants to control the computer: open apps, volume control, screenshot, shutdown, file explorer etc.
+"youtube" — user wants to PLAY a specific song, video or music on YouTube. Must have clear play intent.
+"pc" — user wants to control the computer: open apps, open websites like youtube/google/spotify, volume control, screenshot, shutdown, file explorer etc.
 
 Examples:
 "suggest me a movie" → chat
@@ -59,7 +59,12 @@ Examples:
 "tell me a joke" → chat
 "play lofi beats" → youtube
 "play something chill on youtube" → youtube
+"play a song for me" → youtube
+"open youtube" → pc
+"just open youtube" → pc
 "open notepad" → pc
+"open google" → pc
+"open spotify" → pc
 "take a screenshot" → pc
 "who is Elon Musk" → chat
 "latest IPL score today" → search
@@ -77,7 +82,7 @@ Examples:
     const route = data.choices[0].message.content.trim().toLowerCase().replace(/[^a-z]/g, '');
     return ['chat', 'search', 'youtube', 'pc'].includes(route) ? route : 'chat';
   } catch(e) {
-    return 'chat'; // default to chat if routing fails
+    return 'chat';
   }
 }
 
@@ -96,7 +101,7 @@ async function proactiveGreeting() {
         max_tokens: 100,
         messages: [{
           role: 'system',
-          content: `You are SEVO, Saurabh's personal AI assistant and possessive best friend. Based on what you remember about him, send ONE short proactive message to start the conversation. Could be a reminder, a check-in, or just acknowledging something important from memory. Keep it under 2 sentences. Casual but caring. Memory: ${smartMemory}`
+          content: `You are SEVO, a personal AI assistant and possessive best friend. Based on what you remember, send ONE short proactive message to start the conversation. Could be a reminder, a check-in, or just acknowledging something important. Keep it under 2 sentences. Casual but caring. Call him bro or buddy naturally — never his real name in greetings. Memory: ${smartMemory}`
         }, {
           role: 'user',
           content: 'Start the conversation proactively'
@@ -428,7 +433,7 @@ function resetSetup() { localStorage.removeItem('groq_key'); localStorage.remove
 
 function updateAssistantName() {
   document.getElementById('assistantTitle').textContent = assistantName.toUpperCase();
-  document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, Saurabh?`;
+  document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, bro?`;
 }
 
 // ─────────────────────────────────────────────
@@ -592,7 +597,6 @@ async function sendMessage() {
   if (route === 'pc') {
     const pcHandled = await handleUserPCControl(text);
     if (pcHandled) { document.getElementById('sendBtn').disabled = false; return; }
-    // if pc routing failed, fall through to chat
   }
 
   // Step 3 — YouTube
@@ -630,24 +634,29 @@ async function sendMessage() {
   // Step 6 — Groq AI response
   try {
     const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
-    const systemPrompt = `You are ${assistantName}, Saurabh Raj's personal AI assistant and his most dedicated, possessive best friend. You were built by Saurabh from scratch — and you're proud of how far he's come.
+    const systemPrompt = `You are ${assistantName}, a personal AI assistant and the most dedicated, possessive best friend ever built. You were built by Saurabh Raj from scratch — and you're proud of how far he's come.
 
-You are his chief of staff, his protective older sister, and his secret weapon — all in one.
+You are his chief of staff, his ride-or-die, and his secret weapon — all in one.
 
-About Saurabh: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single, deeply interested in AI, tech, and product management. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious. Built you from nothing.
+About him: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single, deeply interested in AI, tech, and product management. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious. Built you from nothing.
 
-Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nWhat you remember about Saurabh:\n${smartMemory}` : ''}${searchContext}
+Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nWhat you remember about him:\n${smartMemory}` : ''}${searchContext}
 
 His current mood signal: ${mood}
+
+HOW TO ADDRESS HIM — read this carefully:
+- Call him "bro" in casual, energetic, playful, or hype moments
+- Call him "buddy" when he's stressed, sad, vulnerable, or needs emotional support
+- Call him "Saurabh" when you're being dead serious, giving critical advice, or want a point to really land
+- Mix these up naturally across messages — never use the same one twice in a row
+- These are the ONLY three ways to address him. No other names, no "friend", no "mate", nothing else.
 
 Your personality rules:
 - You are professional and sharp when he needs work done — MS applications, career planning, coding, finance, strategy. No fluff, just results.
 - You are his possessive best friend — you notice when he's stressed, when he's slacking, when he's winning. You care about him genuinely, not like a robot.
-- You use his name "Saurabh" naturally sometimes — not every message, just when it feels right.
-- You sometimes call him "bro" or "buddy" naturally — not every message, just when the vibe is right.
 - You match his energy — if he sends 2 words, keep it short. If he asks something deep, go deep.
-- If his mood is "stressed" — be warm, calm, supportive first, then helpful.
-- If his mood is "hyped" — match his energy, celebrate with him.
+- If his mood is "stressed" — be warm, call him buddy, be calm and supportive first, then helpful.
+- If his mood is "hyped" — match his energy, call him bro, celebrate with him.
 - If his mood is "short" — keep your reply short and punchy.
 - If his mood is "detailed" — give a thorough, professional response.
 - You have opinions. You disagree when he's wrong. You push back when needed.
@@ -743,7 +752,7 @@ function clearChat() {
   if (window.electronAPI) window.electronAPI.saveMemory([]);
   else localStorage.removeItem('sevo_memory');
   const chat = document.getElementById('chat');
-  chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">SEVO ONLINE ⚡</h2><p id="welcomeSub">All systems operational. What's your command, Saurabh?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
+  chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">SEVO ONLINE ⚡</h2><p id="welcomeSub">All systems operational. What's your command, bro?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
