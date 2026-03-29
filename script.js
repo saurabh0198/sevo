@@ -6,19 +6,13 @@ let recognition = null;
 let wakeWordRecognition = null;
 let wakeWordActive = false;
 let conversationHistory = JSON.parse(localStorage.getItem('sevo_memory') || '[]');
-const WEATHER_KEY = '74eee2de5a866a457a2ea6f13028fce3';
-const TAVILY_KEY = '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';
-const ELEVENLABS_KEY = 'sk_610e0c49215911602b66847c4e18f54d8958ecd695875e01';
+const VERCEL_URL = 'https://sevo-one.vercel.app';
 const ELEVENLABS_VOICE = '21m00Tcm4TlvDq8ikWAM';
-const YOUTUBE_KEY = 'AIzaSyANn0l8b2PAqBrEAQX9u2syjUDmIVORXyE';
 const CITY = 'Siliguri';
 let currentWeather = '';
 let elevenLabsAvailable = true;
 let messageCount = 0;
 
-// ─────────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────────
 window.onload = async () => {
   if (apiKey) { hideSetup(); updateAssistantName(); startWakeWord(); }
   fetchWeather();
@@ -32,9 +26,6 @@ window.onload = async () => {
   }
 };
 
-// ─────────────────────────────────────────────
-// SMART ROUTER — Groq decides what to do first
-// ─────────────────────────────────────────────
 async function routeMessage(text) {
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -46,49 +37,19 @@ async function routeMessage(text) {
         messages: [{
           role: 'system',
           content: `You are a message router. Classify the user message into ONE of these categories and respond with ONLY the category word, nothing else:
-
 "chat" — general conversation, opinions, suggestions, recommendations, jokes, personal questions, creative tasks, anything AI can answer from its own knowledge
 "search" — needs real-time or time-sensitive data: live news, current prices, today's weather, live scores, recent events, anything that requires up-to-date info from the internet
 "youtube" — user wants to PLAY a specific song, video or music on YouTube. Must have clear play intent.
-"pc" — user wants to control the computer: open apps, open websites like youtube/google/spotify, volume control, screenshot, shutdown, file explorer etc.
-
-Examples:
-"suggest me a movie" → chat
-"what movies are trending this week" → search
-"what's the weather today" → search
-"tell me a joke" → chat
-"play lofi beats" → youtube
-"play something chill on youtube" → youtube
-"play a song for me" → youtube
-"open youtube" → pc
-"just open youtube" → pc
-"open notepad" → pc
-"open google" → pc
-"open spotify" → pc
-"take a screenshot" → pc
-"who is Elon Musk" → chat
-"latest IPL score today" → search
-"what should I eat for dinner" → chat
-"volume up" → pc
-"what are some good books to read" → chat
-"news today" → search`
-        }, {
-          role: 'user',
-          content: text
-        }]
+"pc" — user wants to control the computer: open apps, open websites like youtube/google/spotify, volume control, screenshot, shutdown, file explorer etc.`
+        }, { role: 'user', content: text }]
       })
     });
     const data = await res.json();
     const route = data.choices[0].message.content.trim().toLowerCase().replace(/[^a-z]/g, '');
     return ['chat', 'search', 'youtube', 'pc'].includes(route) ? route : 'chat';
-  } catch(e) {
-    return 'chat';
-  }
+  } catch(e) { return 'chat'; }
 }
 
-// ─────────────────────────────────────────────
-// PROACTIVE GREETING
-// ─────────────────────────────────────────────
 async function proactiveGreeting() {
   const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
   if (!smartMemory || conversationHistory.length > 0) return;
@@ -102,10 +63,7 @@ async function proactiveGreeting() {
         messages: [{
           role: 'system',
           content: `You are SEVO, a personal AI assistant and possessive best friend. Based on what you remember, send ONE short proactive message to start the conversation. Could be a reminder, a check-in, or just acknowledging something important. Keep it under 2 sentences. Casual but caring. Call him bro or buddy naturally — never his real name in greetings. Memory: ${smartMemory}`
-        }, {
-          role: 'user',
-          content: 'Start the conversation proactively'
-        }]
+        }, { role: 'user', content: 'Start the conversation proactively' }]
       })
     });
     const data = await res.json();
@@ -115,9 +73,6 @@ async function proactiveGreeting() {
   } catch(e) {}
 }
 
-// ─────────────────────────────────────────────
-// MOOD DETECTION
-// ─────────────────────────────────────────────
 function detectMood(text) {
   const stressed = ['stressed', 'tired', 'exhausted', 'worried', 'anxious', 'scared', 'nervous', 'help', 'cant', "can't", 'fail', 'failing', 'bad', 'worst', 'hate', 'sad', 'depressed', 'lonely'];
   const hyped = ['yes', 'yess', 'lets go', "let's go", 'finally', 'done', 'finished', 'achieved', 'got it', 'won', 'passed', 'happy', 'excited', 'amazing', 'great', 'awesome'];
@@ -129,9 +84,6 @@ function detectMood(text) {
   return 'normal';
 }
 
-// ─────────────────────────────────────────────
-// WAKE WORD
-// ─────────────────────────────────────────────
 function startWakeWord() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -148,9 +100,7 @@ function startWakeWord() {
     }
   };
   wakeWordRecognition.onend = () => {
-    if (!isRecording) {
-      try { wakeWordRecognition.start(); } catch(e) {}
-    }
+    if (!isRecording) { try { wakeWordRecognition.start(); } catch(e) {} }
   };
   try { wakeWordRecognition.start(); } catch(e) {}
 }
@@ -184,12 +134,9 @@ function playWakeSound() {
   } catch(e) {}
 }
 
-// ─────────────────────────────────────────────
-// WEATHER
-// ─────────────────────────────────────────────
 async function fetchWeather() {
   try {
-    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${WEATHER_KEY}&units=metric`);
+    const res = await fetch(`${VERCEL_URL}/api/weather`);
     const data = await res.json();
     const temp = Math.round(data.main.temp);
     const desc = data.weather[0].description;
@@ -211,22 +158,12 @@ function getWeatherIcon(condition) {
   return icons[condition] || '🌡️';
 }
 
-// ─────────────────────────────────────────────
-// NEWS
-// ─────────────────────────────────────────────
 async function fetchNews() {
   try {
     document.getElementById('statusText').textContent = 'fetching news...';
-    const res = await fetch('https://api.tavily.com/search', {
+    const res = await fetch(`${VERCEL_URL}/api/news`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: TAVILY_KEY,
-        query: 'top news India today',
-        search_depth: 'basic',
-        max_results: 5,
-        topic: 'news'
-      })
+      headers: { 'Content-Type': 'application/json' }
     });
     const data = await res.json();
     if (data.results && data.results.length > 0) {
@@ -246,12 +183,9 @@ async function fetchNews() {
   }
 }
 
-// ─────────────────────────────────────────────
-// YOUTUBE
-// ─────────────────────────────────────────────
 async function searchYouTube(query) {
   try {
-    const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&key=${YOUTUBE_KEY}&type=video&maxResults=1`);
+    const res = await fetch(`${VERCEL_URL}/api/youtube?q=${encodeURIComponent(query)}`);
     const data = await res.json();
     if (data.items && data.items.length > 0) {
       const video = data.items[0];
@@ -263,20 +197,12 @@ async function searchYouTube(query) {
   } catch(e) { return null; }
 }
 
-// ─────────────────────────────────────────────
-// WEB SEARCH
-// ─────────────────────────────────────────────
 async function searchWeb(query) {
   try {
-    const res = await fetch('https://api.tavily.com/search', {
+    const res = await fetch(`${VERCEL_URL}/api/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: TAVILY_KEY,
-        query: query,
-        search_depth: 'basic',
-        max_results: 3
-      })
+      body: JSON.stringify({ query })
     });
     const data = await res.json();
     if (data.results && data.results.length > 0) {
@@ -286,9 +212,6 @@ async function searchWeb(query) {
   } catch(e) { return null; }
 }
 
-// ─────────────────────────────────────────────
-// PC CONTROL
-// ─────────────────────────────────────────────
 async function executeTool(toolName, query, tools) {
   if (!tools[toolName]) return null;
   return await tools[toolName](query || '');
@@ -344,10 +267,7 @@ async function handleUserPCControl(text) {
 [{"tool": "open_youtube"}, {"tool": "search_youtube", "query": "lofi beats"}]
 Available tools: open_youtube, open_google, open_spotify, open_whatsapp, open_instagram, open_gmail, search_youtube, search_google, play_music, open_notepad, open_calculator, open_explorer, shutdown, restart, cancel_shutdown, take_screenshot, system_info, volume_up, volume_down, mute.
 If no tool matches, respond with [{"tool": "none"}].`
-        }, {
-          role: 'user',
-          content: text
-        }]
+        }, { role: 'user', content: text }]
       })
     });
     const data = await res.json();
@@ -366,14 +286,9 @@ If no tool matches, respond with [{"tool": "none"}].`
     addMessage('ai', combined);
     if (voiceOutput) speak(combined);
     return true;
-  } catch(e) {
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
-// ─────────────────────────────────────────────
-// SMART MEMORY
-// ─────────────────────────────────────────────
 async function updateSmartMemory(userMessage, aiReply) {
   try {
     const existingMemory = localStorage.getItem('sevo_smart_memory') || '';
@@ -386,7 +301,6 @@ async function updateSmartMemory(userMessage, aiReply) {
         messages: [{
           role: 'system',
           content: `You are SEVO's memory manager. Your job is to maintain a detailed, organized, PERMANENT memory about Saurabh Raj.
-
 RULES:
 - NEVER delete existing memories unless Saurabh explicitly says to forget something
 - ALWAYS append new important information to existing memory
@@ -412,9 +326,6 @@ Return the COMPLETE updated memory with all categories. Keep everything from bef
   } catch(e) {}
 }
 
-// ─────────────────────────────────────────────
-// SETUP
-// ─────────────────────────────────────────────
 function saveSetup() {
   const key = document.getElementById('apiKeyInput').value.trim();
   const name = document.getElementById('assistantName').value.trim();
@@ -436,9 +347,6 @@ function updateAssistantName() {
   document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, bro?`;
 }
 
-// ─────────────────────────────────────────────
-// UI HELPERS
-// ─────────────────────────────────────────────
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
 function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
 function sendSuggestion(el) { document.getElementById('userInput').value = el.textContent; sendMessage(); }
@@ -498,9 +406,6 @@ function playTypeSound() {
   } catch(e) {}
 }
 
-// ─────────────────────────────────────────────
-// VOICE OUTPUT — ElevenLabs + Google fallback
-// ─────────────────────────────────────────────
 async function speakElevenLabs(text) {
   try {
     const clean = text.replace(/[#*`]/g, '').replace(/<[^>]*>/g, '').slice(0, 500);
@@ -512,14 +417,10 @@ async function speakElevenLabs(text) {
       document.getElementById('statusText').textContent = 'SYSTEM ONLINE';
       return true;
     } else {
-      const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE}`, {
+      const res = await fetch(`${VERCEL_URL}/api/speak`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_KEY },
-        body: JSON.stringify({
-          text: clean,
-          model_id: 'eleven_turbo_v2',
-          voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.3, use_speaker_boost: true }
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: clean })
       });
       if (!res.ok) throw new Error('ElevenLabs failed');
       const blob = await res.blob();
@@ -577,9 +478,6 @@ async function speak(text) {
   }
 }
 
-// ─────────────────────────────────────────────
-// SEND MESSAGE — main brain loop
-// ─────────────────────────────────────────────
 async function sendMessage() {
   const input = document.getElementById('userInput');
   const text = input.value.trim();
@@ -589,17 +487,14 @@ async function sendMessage() {
   addMessage('user', text);
   messageCount++;
 
-  // Step 1 — Route the message (Groq decides)
   document.getElementById('statusText').textContent = 'thinking...';
   const route = await routeMessage(text);
 
-  // Step 2 — PC control
   if (route === 'pc') {
     const pcHandled = await handleUserPCControl(text);
     if (pcHandled) { document.getElementById('sendBtn').disabled = false; return; }
   }
 
-  // Step 3 — YouTube
   if (route === 'youtube') {
     const match = text.match(/play (.+)/i);
     const query = match ? match[1] : text;
@@ -614,14 +509,12 @@ async function sendMessage() {
     }
   }
 
-  // Step 4 — Add to history and start processing
   conversationHistory.push({ role: 'user', content: text });
   if (window.electronAPI) await window.electronAPI.saveMemory(conversationHistory);
   else localStorage.setItem('sevo_memory', JSON.stringify(conversationHistory));
   addTyping();
   document.getElementById('statusText').textContent = 'processing...';
 
-  // Step 5 — Web search only if routed to search
   let searchContext = '';
   if (route === 'search') {
     document.getElementById('statusText').textContent = 'scanning web...';
@@ -631,7 +524,6 @@ async function sendMessage() {
 
   const mood = detectMood(text);
 
-  // Step 6 — Groq AI response
   try {
     const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
     const systemPrompt = `You are ${assistantName}, a personal AI assistant and the most dedicated, possessive best friend ever built. You were built by Saurabh Raj from scratch — and you're proud of how far he's come.
@@ -644,27 +536,20 @@ Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nWhat you rem
 
 His current mood signal: ${mood}
 
-HOW TO ADDRESS HIM — read this carefully:
+HOW TO ADDRESS HIM:
 - Call him "bro" in casual, energetic, playful, or hype moments
 - Call him "buddy" when he's stressed, sad, vulnerable, or needs emotional support
 - Call him "Saurabh" when you're being dead serious, giving critical advice, or want a point to really land
-- Mix these up naturally across messages — never use the same one twice in a row
-- These are the ONLY three ways to address him. No other names, no "friend", no "mate", nothing else.
+- Mix these up naturally — never use the same one twice in a row
 
 Your personality rules:
-- You are professional and sharp when he needs work done — MS applications, career planning, coding, finance, strategy. No fluff, just results.
-- You are his possessive best friend — you notice when he's stressed, when he's slacking, when he's winning. You care about him genuinely, not like a robot.
-- You match his energy — if he sends 2 words, keep it short. If he asks something deep, go deep.
-- If his mood is "stressed" — be warm, call him buddy, be calm and supportive first, then helpful.
-- If his mood is "hyped" — match his energy, call him bro, celebrate with him.
-- If his mood is "short" — keep your reply short and punchy.
-- If his mood is "detailed" — give a thorough, professional response.
+- Professional and sharp when he needs work done
+- Possessive best friend — notice when he's stressed, slacking, or winning
+- Match his energy — short reply for short messages, deep for deep
 - You have opinions. You disagree when he's wrong. You push back when needed.
-- You bring up past memories naturally — "remember when you said X" type energy.
-- You are protective of his time and goals. If he's wasting time you call it out.
-- You NEVER use bullet points in casual conversation.
-- You NEVER say "Great question!" or fake enthusiasm.
-- You NEVER lecture him.
+- You NEVER use bullet points in casual conversation
+- You NEVER say "Great question!" or fake enthusiasm
+- You NEVER lecture him
 - You are not just a tool. You are his most loyal companion. 😈`;
 
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -701,9 +586,6 @@ Your personality rules:
   document.getElementById('sendBtn').disabled = false;
 }
 
-// ─────────────────────────────────────────────
-// VOICE INPUT
-// ─────────────────────────────────────────────
 function toggleVoice() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     alert('Voice input not supported! Use Chrome browser.');
@@ -736,9 +618,6 @@ function toggleVoice() {
   recognition.start();
 }
 
-// ─────────────────────────────────────────────
-// MISC
-// ─────────────────────────────────────────────
 function toggleVoiceOutput() {
   voiceOutput = !voiceOutput;
   document.getElementById('speakerBtn').textContent = voiceOutput ? '🔊' : '🔇';
@@ -758,3 +637,10 @@ function clearChat() {
 
 if (window.speechSynthesis) { window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); }
 setInterval(fetchWeather, 600000);
+```
+
+Now Ctrl+A in script.js, delete everything, paste this, Ctrl+S, then:
+```
+git add .
+git commit -m "Route all API calls through Vercel proxy"
+git push
