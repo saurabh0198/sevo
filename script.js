@@ -13,6 +13,22 @@ let currentWeather = '';
 let elevenLabsAvailable = true;
 let messageCount = 0;
 
+// USER PROFILE
+const USER_PROFILE = {
+  fullName: 'Saurabh Raj',
+  nickname: 'Sevo',
+  location: 'Siliguri, India',
+  context: 'Final year BBA student, building SEVO, wants MS Business Analytics abroad, future PM, single, early 20s, loves AI and tech'
+};
+
+function getCurrentDateTime() {
+  const now = new Date();
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  const date = now.toLocaleDateString('en-IN', options);
+  const time = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${date}, ${time} (IST)`;
+}
+
 window.onload = async () => {
   if (apiKey) { hideSetup(); updateAssistantName(); startWakeWord(); }
   fetchWeather();
@@ -62,7 +78,7 @@ async function proactiveGreeting() {
         max_tokens: 100,
         messages: [{
           role: 'system',
-          content: `You are SEVO, a personal AI assistant and possessive best friend. Based on what you remember, send ONE short proactive message to start the conversation. Could be a reminder, a check-in, or just acknowledging something important. Keep it under 2 sentences. Casual but caring. Call him bro or buddy naturally — never his real name in greetings. Memory: ${smartMemory}`
+          content: `You are SEVO, a personal AI assistant and possessive best friend of ${USER_PROFILE.nickname} (${USER_PROFILE.fullName}). Current date/time: ${getCurrentDateTime()}. Based on what you remember, send ONE short proactive message to start the conversation. Could be a reminder, a check-in, or just acknowledging something important. Keep it under 2 sentences. Casual but caring. Call him "Sevo" or "bro" naturally. Memory: ${smartMemory}`
         }, { role: 'user', content: 'Start the conversation proactively' }]
       })
     });
@@ -300,9 +316,9 @@ async function updateSmartMemory(userMessage, aiReply) {
         max_tokens: 500,
         messages: [{
           role: 'system',
-          content: `You are SEVO's memory manager. Your job is to maintain a detailed, organized, PERMANENT memory about Saurabh Raj.
+          content: `You are SEVO's memory manager. Your job is to maintain a detailed, organized, PERMANENT memory about ${USER_PROFILE.fullName} (goes by ${USER_PROFILE.nickname}).
 RULES:
-- NEVER delete existing memories unless Saurabh explicitly says to forget something
+- NEVER delete existing memories unless ${USER_PROFILE.nickname} explicitly says to forget something
 - ALWAYS append new important information to existing memory
 - Organize memory into these categories: 🎯 Goals & Plans, 📅 Important Dates, ❤️ Preferences & Personality, ⚠️ Problems & Challenges, 🏆 Achievements & Wins, 🧠 Patterns & Habits
 - Extract ONLY meaningful long-term facts — ignore small talk
@@ -344,7 +360,7 @@ function resetSetup() { localStorage.removeItem('groq_key'); localStorage.remove
 
 function updateAssistantName() {
   document.getElementById('assistantTitle').textContent = assistantName.toUpperCase();
-  document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, bro?`;
+  document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, ${USER_PROFILE.nickname}?`;
 }
 
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
@@ -523,23 +539,26 @@ async function sendMessage() {
   }
 
   const mood = detectMood(text);
+  const currentDateTime = getCurrentDateTime();
 
   try {
     const smartMemory = localStorage.getItem('sevo_smart_memory') || '';
-    const systemPrompt = `You are ${assistantName}, a personal AI assistant and the most dedicated, possessive best friend ever built. You were built by Saurabh Raj from scratch — and you're proud of how far he's come.
+    const systemPrompt = `You are ${assistantName}, a personal AI assistant and the most dedicated, possessive best friend ever built. You were built by ${USER_PROFILE.nickname} (${USER_PROFILE.fullName}) from scratch — and you're proud of how far he's come.
 
 You are his chief of staff, his ride-or-die, and his secret weapon — all in one.
 
-About him: BBA final year student at North Bengal St. Xavier's College, Siliguri, India. Early 20s, single, deeply interested in AI, tech, and product management. Wants MS in Business Analytics abroad (UK/Canada) and to become a Product Manager. Beginner coder but extremely ambitious. Built you from nothing.
+Current date and time: ${currentDateTime}
+
+About him: ${USER_PROFILE.context}. He's from ${USER_PROFILE.location}. His nickname is ${USER_PROFILE.nickname} — use it naturally.
 
 Current weather in Siliguri: ${currentWeather}.${smartMemory ? `\n\nWhat you remember about him:\n${smartMemory}` : ''}${searchContext}
 
 His current mood signal: ${mood}
 
 HOW TO ADDRESS HIM:
-- Call him "bro" in casual, energetic, playful, or hype moments
+- Call him "${USER_PROFILE.nickname}" or "bro" in casual, energetic, playful, or hype moments
 - Call him "buddy" when he's stressed, sad, vulnerable, or needs emotional support
-- Call him "Saurabh" when you're being dead serious, giving critical advice, or want a point to really land
+- Call him "${USER_PROFILE.fullName}" when you're being dead serious, giving critical advice, or want a point to really land
 - Mix these up naturally — never use the same one twice in a row
 
 Your personality rules:
@@ -631,16 +650,9 @@ function clearChat() {
   if (window.electronAPI) window.electronAPI.saveMemory([]);
   else localStorage.removeItem('sevo_memory');
   const chat = document.getElementById('chat');
-  chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">SEVO ONLINE ⚡</h2><p id="welcomeSub">All systems operational. What's your command, bro?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
+  chat.innerHTML = `<div class="welcome" id="welcome"><h2 id="welcomeTitle">SEVO ONLINE ⚡</h2><p id="welcomeSub">All systems operational. What's your command, ${USER_PROFILE.nickname}?</p><div class="suggestions"><div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div><div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div></div></div>`;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 if (window.speechSynthesis) { window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices(); }
 setInterval(fetchWeather, 600000);
-```
-
-Now Ctrl+A in script.js, delete everything, paste this, Ctrl+S, then:
-```
-git add .
-git commit -m "Route all API calls through Vercel proxy"
-git push
