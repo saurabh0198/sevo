@@ -418,7 +418,10 @@ Examples:
 "open notepad" → pc
 "what is quantum computing" → chat
 "what's the weather and play lofi on youtube" → search,youtube
-"open spotify and tell me a joke" → pc,chat`
+"open spotify and tell me a joke" → pc,chat
+"search latest AI news and open youtube" → search,pc
+"search something and open youtube" → search,pc
+"search news and open spotify" → search,pc`
           }, { role: 'user', content: text }]
         })
       });
