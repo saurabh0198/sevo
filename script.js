@@ -610,7 +610,16 @@ const UI = {
 // ============================================================
 // WAKE WORD + VOICE INPUT
 // ============================================================
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 function startWakeWord() {
+  // Wake word is not available on mobile in this phase (PRD, Phase 6) — mobile
+  // Chrome ends `continuous` SpeechRecognition sessions far more aggressively
+  // than desktop, which turned the onend auto-restart below into a rapid
+  // start/stop loop (mic indicator flicker + notification sound, see P0 fix).
+  if (isMobileDevice()) return;
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   STATE.wakeWordRecognition = new SpeechRecognition();
@@ -661,19 +670,28 @@ function playWakeSound() {
   } catch(e) {}
 }
 
+function resetRecordingUI() {
+  STATE.isRecording = false;
+  document.getElementById('voiceBtn').classList.remove('recording');
+  document.getElementById('voiceBtn').textContent = '🎤';
+  UI.setStatus('SYSTEM ONLINE');
+}
+
 function toggleVoice() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     alert('Voice input not supported! Use Chrome browser.');
     return;
   }
-  if (STATE.isRecording) { STATE.recognition.stop(); return; }
+  if (STATE.isRecording) { STATE.recognition?.stop(); return; }
+  // Set synchronously (not in onstart) so a fast double-tap before onstart
+  // fires can't slip past this guard and spin up a second concurrent session.
+  STATE.isRecording = true;
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   STATE.recognition = new SpeechRecognition();
   STATE.recognition.lang = 'en-IN';
   STATE.recognition.continuous = false;
   STATE.recognition.interimResults = false;
   STATE.recognition.onstart = () => {
-    STATE.isRecording = true;
     document.getElementById('voiceBtn').classList.add('recording');
     document.getElementById('voiceBtn').textContent = '⏹️';
     UI.setStatus('listening...');
@@ -684,12 +702,8 @@ function toggleVoice() {
     autoResize(document.getElementById('userInput'));
     sendMessage();
   };
-  STATE.recognition.onend = () => {
-    STATE.isRecording = false;
-    document.getElementById('voiceBtn').classList.remove('recording');
-    document.getElementById('voiceBtn').textContent = '🎤';
-    UI.setStatus('SYSTEM ONLINE');
-  };
+  STATE.recognition.onerror = () => resetRecordingUI();
+  STATE.recognition.onend = () => resetRecordingUI();
   STATE.recognition.start();
 }
 
