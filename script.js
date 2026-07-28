@@ -309,15 +309,21 @@ CAPABILITIES: You can control ${USER_PROFILE.nickname}'s PC — open apps, websi
     const mood = detectMood(userMessage);
     const systemPrompt = this.buildSystemPrompt(mood, searchContext);
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.groqKey}` },
-      body: JSON.stringify({
-        model: CONFIG.groqModel,
-        messages: [{ role: 'system', content: systemPrompt }, ...MemoryAgent.getRecent(20)],
-        max_tokens: 1024
-      })
-    });
+    let res;
+    try {
+      res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CONFIG.groqKey}` },
+        body: JSON.stringify({
+          model: CONFIG.groqModel,
+          messages: [{ role: 'system', content: systemPrompt }, ...MemoryAgent.getRecent(20)],
+          max_tokens: 1024
+        })
+      });
+    } catch (e) {
+      throw new Error('SEVO_OFFLINE');
+    }
+    if (!res.ok) throw new Error('SEVO_OFFLINE');
     const data = await res.json();
     if (data.error) throw new Error(data.error.message);
     return data.choices[0].message.content;
@@ -514,8 +520,15 @@ Examples:
 
     } catch(err) {
       UI.removeTyping();
-      UI.addMessage('ai', `❌ Error: ${err.message}`);
-      UI.setStatus('ERROR');
+      if (err?.message === 'SEVO_OFFLINE') {
+        const fallback = "I'm having trouble reaching my brain right now. Try again in a sec.";
+        UI.addMessage('ai', fallback);
+        if (STATE.voiceOutput) VoiceAgent.speak(fallback);
+        UI.setStatus('SYSTEM ONLINE');
+      } else {
+        UI.addMessage('ai', `❌ Error: ${err.message}`);
+        UI.setStatus('ERROR');
+      }
     }
   }
 };
@@ -829,6 +842,19 @@ function clearChat() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
+
+// ============================================================
+// PWA — Service worker registration (browser/GitHub Pages only;
+// harmless no-op in Electron, failure is logged not thrown)
+// ============================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sevo/sw.js', { scope: '/sevo/' })
+    .catch((e) => console.warn('SEVO: service worker registration failed', e));
+}
+
+window.addEventListener('online', () => {
+  UI.setStatus('SYSTEM ONLINE');
+});
 
 // ============================================================
 // INIT — Boot sequence
