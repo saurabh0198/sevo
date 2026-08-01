@@ -11,5 +11,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVolume: () => ipcRenderer.invoke('get-volume'),
   setVolume: (level) => ipcRenderer.invoke('set-volume', level),
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
-  getSystemInfo: () => ipcRenderer.invoke('get-system-info')
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  startGmailAuth: () => ipcRenderer.invoke('gmail-auth'),
+  onAppClosing: (callback) => ipcRenderer.on('app-closing', callback),
+  confirmReadyToClose: () => ipcRenderer.send('ready-to-close'),
 })
