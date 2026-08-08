@@ -77,6 +77,27 @@ const AuthAgent = {
     return this.session;
   },
 
+  // Phase 7 Spec 3 — fetches fresh each call (rather than trusting the
+  // cached this.session) so a call right after token refresh never sends
+  // a stale/expired token. getSession() itself handles the refresh-if-
+  // needed check internally, per Supabase's own client contract.
+  async getAccessToken() {
+    if (!this.client) return null;
+    const { data } = await this.client.auth.getSession();
+    return data.session?.access_token ?? null;
+  },
+
+  // Drop-in replacement for fetch() that adds Authorization: Bearer <token>
+  // when a session exists — used for every call that touches the real
+  // memories/conversations/mood_sessions tables, so the backend can scope
+  // reads/writes to the authenticated user (Phase 7 Spec 3).
+  async authFetch(url, options = {}) {
+    const token = await this.getAccessToken();
+    const headers = { ...(options.headers || {}) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, { ...options, headers });
+  },
+
   async signUp(email, password) {
     return await this.client.auth.signUp({ email, password });
   },
@@ -265,7 +286,7 @@ const MemoryAgent = {
 
   async load() {
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/conversation/${this.sessionId}`);
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/conversation/${this.sessionId}`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         this.conversation = data.map(m => ({ role: m.role, content: m.content }));
@@ -278,7 +299,7 @@ const MemoryAgent = {
 
   async loadSmartMemory() {
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/memory/smart_memory`);
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/memory/smart_memory`);
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         this.smartMemoryCache = data[data.length - 1].content;
@@ -293,7 +314,7 @@ const MemoryAgent = {
     this.conversation.push({ role, content });
     if (this.conversation.length > 40) this.conversation = this.conversation.slice(-40);
     localStorage.setItem('sevo_memory', JSON.stringify(this.conversation));
-    fetch(`${CONFIG.vercelUrl}/api/conversation`, {
+    AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/conversation`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: this.sessionId, role, content })
@@ -344,7 +365,7 @@ Return the COMPLETE updated memory.`,
       if (!newMemory) return;
       this.smartMemoryCache = newMemory;
       localStorage.setItem('sevo_smart_memory', newMemory);
-      fetch(`${CONFIG.vercelUrl}/api/memory`, {
+      AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/memory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ category: 'smart_memory', content: newMemory })
@@ -356,7 +377,7 @@ Return the COMPLETE updated memory.`,
     this.conversation = [];
     this.smartMemoryCache = '';
     localStorage.removeItem('sevo_memory');
-    fetch(`${CONFIG.vercelUrl}/api/conversation/${this.sessionId}`, { method: 'DELETE' }).catch(() => {});
+    AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/conversation/${this.sessionId}`, { method: 'DELETE' }).catch(() => {});
   }
 };
 
@@ -431,7 +452,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
     }
     
     try {
-      await fetch(`${CONFIG.vercelUrl}/api/mood`, {
+      await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/mood`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -442,7 +463,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
   async logSessionOpen() {
     const today = new Date().toISOString().split('T')[0];
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/session/open`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/session/open`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: MemoryAgent.sessionId, date: today })
@@ -468,7 +489,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
     const dismissedDate = localStorage.getItem('sevo_checkin_dismissed_date');
     if (dismissedDate) {
       try {
-        const res = await fetch(`${CONFIG.vercelUrl}/api/mood/recent`);
+        const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/mood/recent`);
         const data = await res.json();
         if (Array.isArray(data)) {
           const sessionsSinceDismissal = data.filter(d => d.date > dismissedDate).length;
@@ -478,7 +499,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
     }
     
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/mood/recent`);
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/mood/recent`);
       const data = await res.json();
       if (!Array.isArray(data) || data.length < 3) return false;
       const last3 = data.slice(-3);
@@ -528,7 +549,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
     const dismissedDate = localStorage.getItem('sevo_checkin_dismissed_date');
     if (dismissedDate) {
       try {
-        const res = await fetch(`${CONFIG.vercelUrl}/api/mood/recent`);
+        const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/mood/recent`);
         const data = await res.json();
         if (Array.isArray(data)) {
           const sessionsSinceDismissal = data.filter(d => d.date > dismissedDate).length;
