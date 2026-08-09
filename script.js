@@ -374,6 +374,14 @@ function getCurrentDateTime() {
   return `${date}, ${time} (IST)`;
 }
 
+// YYYY-MM-DD in IST (not UTC) — plain Date().toISOString() is always UTC,
+// which is up to 5.5h behind IST's calendar day around midnight-5:30am IST.
+// Used anywhere a "which calendar day is it, for this India-based user"
+// comparison is needed (e.g. once-per-day gating).
+function getISTDateString() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
 async function detectMood(text) {
   try {
     const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
@@ -894,7 +902,7 @@ const WorldAgent = {
   },
 
   shouldFireBriefing() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getISTDateString();
     const lastBriefing = localStorage.getItem('sevo_last_briefing');
     return lastBriefing !== today && !this.briefingFired;
   },
@@ -905,32 +913,44 @@ const WorldAgent = {
     const mood = STATE.currentMood;
     if (mood === 'frustrated' && !forced) return;
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getISTDateString();
     localStorage.setItem('sevo_last_briefing', today);
     this.briefingFired = true;
 
     UI.setStatus('loading world briefing...');
 
+    // Market/crypto content is opt-in: only fetched automatically if the
+    // user has explicit watchlist entries (already an existing signal
+    // they want this tracked) — an explicit user-requested briefing
+    // (forced=true) still gets everything regardless of watchlist state.
+    const hasWatchlistOptIn = this.watchlist.stocks.length > 0 || this.watchlist.crypto.length > 0;
+    const includeMarketData = forced || hasWatchlistOptIn;
+
     const [cryptoResult, marketResult, newsResult] = await Promise.all([
-      this.fetchCrypto(),
-      this.fetchMarket(),
+      includeMarketData ? this.fetchCrypto() : Promise.resolve({ success: false, data: null }),
+      includeMarketData ? this.fetchMarket() : Promise.resolve({ success: false, data: null }),
       this.fetchNews()
     ]);
 
-    const cryptoText = this.formatCrypto(cryptoResult.data);
-    const marketText = this.formatMarket(marketResult.data);
     const newsText = this.formatNews(newsResult.data);
+
+    const contextBlocks = [
+      { type: 'confirmed', label: 'News', content: newsText }
+    ];
+    if (includeMarketData) {
+      contextBlocks.push({ type: 'confirmed', label: 'Crypto', content: this.formatCrypto(cryptoResult.data) });
+      contextBlocks.push({ type: 'confirmed', label: 'Market', content: this.formatMarket(marketResult.data) });
+    }
+
+    // Time-aware, not hardcoded to "morning" — this used to unconditionally
+    // say "morning world briefing" regardless of when it actually fired.
+    const timeContext = `Current date/time: ${getCurrentDateTime()}.`;
+    const greetingInstruction = 'Greet him appropriately for the actual current time of day (morning/afternoon/evening/night) based on the date/time above — never assume it\'s morning.';
 
     const isShortBriefing = mood === 'low' || mood === 'stressed';
     const briefingPrompt = isShortBriefing
-      ? `Deliver a SHORT world briefing to ${USER_PROFILE.nickname}. He seems ${mood} today so keep it brief and soft. Lead with one news headline only. Skip detailed market breakdown — just mention if anything major moved. End naturally.`
-      : `Deliver a natural, conversational morning world briefing to ${USER_PROFILE.nickname}. Cover all four domains in order: global news (top 2-3 stories), crypto (Bitcoin and Ethereum), gold, then defence stocks (HAL, Lockheed Martin, Northrop Grumman). Sound like a well-informed friend catching him up, not a data terminal. End with one line handing control back naturally — something like "That's the world right now. What do you want to tackle first?" Never say "End of briefing". Mood is ${mood} — match energy accordingly.`;
-
-    const contextBlocks = [
-      { type: 'confirmed', label: 'News', content: newsText },
-      { type: 'confirmed', label: 'Crypto', content: cryptoText },
-      { type: 'confirmed', label: 'Market', content: marketText }
-    ];
+      ? `${timeContext} Deliver a SHORT world briefing to ${USER_PROFILE.nickname}. ${greetingInstruction} He seems ${mood} today so keep it brief and soft. Lead with one news headline only.${includeMarketData ? ' Mention market/crypto only if something major moved.' : ''} End naturally.`
+      : `${timeContext} Deliver a natural, conversational world briefing to ${USER_PROFILE.nickname}. ${greetingInstruction} Cover global news (top 2-3 stories)${includeMarketData ? ', then crypto (Bitcoin and Ethereum), gold, then defence stocks (HAL, Lockheed Martin, Northrop Grumman)' : ''}. Sound like a well-informed friend catching him up, not a data terminal. End with one line handing control back naturally — something like "That's the world right now. What do you want to tackle first?" Never say "End of briefing". Mood is ${mood} — match energy accordingly.`;
 
     try {
       const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
@@ -940,7 +960,7 @@ const WorldAgent = {
           call_type: 'companion',
           system: briefingPrompt,
           context_blocks: contextBlocks,
-          messages: [{ role: 'user', content: 'Deliver my morning briefing' }]
+          messages: [{ role: 'user', content: 'Deliver my briefing' }]
         })
       });
       const data = await res.json();
