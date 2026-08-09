@@ -103,9 +103,40 @@
     <button class="icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" title="Toggle voice">🔊</button>
     <button class="icon-btn" onclick="clearChat()" title="Clear">🗑️</button>
     <button class="icon-btn" onclick="AuthUI.logout()" title="Log out">🚪</button>
-    <button class="icon-btn" onclick="resetSetup()" title="Settings">⚙️</button>
+    <button class="icon-btn" onclick="AccountUI.openSettings()" title="Settings">⚙️</button>
   </div>
 </header>
+
+<!-- Phase 7 Spec 6 — settings + account deletion. Deliberately its own
+     panel behind the gear icon, not reachable from the main chat flow. -->
+<div id="settingsPanel" style="display:none;">
+  <div class="setup-card">
+    <div class="big-icon">⚙️</div>
+    <h2>SETTINGS</h2>
+    <p id="settingsEmail" style="font-size:11px; color:var(--muted); margin-bottom:16px;"></p>
+
+    <button class="setup-btn" onclick="AccountUI.resetLocalData()">RESET LOCAL APP DATA</button>
+
+    <div class="danger-zone">
+      <h3>DANGER ZONE</h3>
+      <p>Permanently deletes your account and all associated data — memories, conversations, mood history, everything. This cannot be undone.</p>
+      <div id="deleteMessage" class="auth-message" style="display:none;"></div>
+
+      <div id="deleteStep1">
+        <button class="setup-btn danger-btn" onclick="AccountUI.showDeleteConfirm()">DELETE MY ACCOUNT</button>
+      </div>
+
+      <div id="deleteStep2" style="display:none;">
+        <p>Type <strong>DELETE</strong> below to confirm. There is no undo.</p>
+        <input type="text" class="setup-input" id="deleteConfirmInput" placeholder="Type DELETE to confirm" autocomplete="off" />
+        <button class="setup-btn danger-btn" onclick="AccountUI.confirmDelete()">PERMANENTLY DELETE</button>
+        <button class="setup-btn" onclick="AccountUI.cancelDelete()">CANCEL</button>
+      </div>
+    </div>
+
+    <button class="setup-btn" onclick="AccountUI.closeSettings()" style="margin-top:16px;">CLOSE</button>
+  </div>
+</div>
 
 <div id="chat">
   <div class="welcome" id="welcome">

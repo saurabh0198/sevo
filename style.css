@@ -304,7 +304,7 @@ header::after {
 }
 
 /* SETUP */
-#setup {
+#setup, #settingsPanel {
   position: fixed;
   inset: 0;
   background: #050508f0;
@@ -313,6 +313,39 @@ header::after {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Phase 7 Spec 6 — account deletion danger zone, reuses .setup-card's
+   shell but visually separated + red-flagged so it never reads as
+   just another settings button. */
+.danger-zone {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--red);
+  text-align: left;
+}
+
+.danger-zone h3 {
+  color: var(--red);
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.danger-zone p {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.danger-btn {
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+}
+
+.danger-btn:hover {
+  background: #ff406015 !important;
+  box-shadow: 0 0 8px #ff406040 !important;
 }
 
 .setup-card {

@@ -217,6 +217,88 @@ const AuthUI = {
   }
 };
 
+// ============================================================
+// ACCOUNT UI — Phase 7 Spec 6 — settings panel + account deletion.
+// Deliberately gated behind the settings gear (not one click from the
+// main chat flow), and deletion itself requires opening the danger
+// zone AND typing "DELETE" AND clicking confirm — three deliberate
+// steps, never an accidental single click.
+// ============================================================
+const AccountUI = {
+  openSettings() {
+    document.getElementById('settingsPanel').style.display = 'flex';
+    document.getElementById('settingsEmail').textContent = AuthAgent.session?.user?.email || '';
+    document.getElementById('deleteStep1').style.display = 'block';
+    document.getElementById('deleteStep2').style.display = 'none';
+    document.getElementById('deleteConfirmInput').value = '';
+    this.clearMessage();
+  },
+
+  closeSettings() {
+    document.getElementById('settingsPanel').style.display = 'none';
+  },
+
+  // Same behavior the old resetSetup() button had — kept, just moved
+  // behind the settings panel instead of being one accidental gear-icon
+  // click away from wiping local state.
+  resetLocalData() {
+    localStorage.clear();
+    location.reload();
+  },
+
+  showDeleteConfirm() {
+    document.getElementById('deleteStep1').style.display = 'none';
+    document.getElementById('deleteStep2').style.display = 'block';
+    this.clearMessage();
+  },
+
+  cancelDelete() {
+    document.getElementById('deleteStep1').style.display = 'block';
+    document.getElementById('deleteStep2').style.display = 'none';
+    document.getElementById('deleteConfirmInput').value = '';
+    this.clearMessage();
+  },
+
+  showMessage(text, type = 'error') {
+    const el = document.getElementById('deleteMessage');
+    el.textContent = text;
+    el.className = `auth-message ${type}`;
+    el.style.display = 'block';
+  },
+
+  clearMessage() {
+    const el = document.getElementById('deleteMessage');
+    el.style.display = 'none';
+    el.textContent = '';
+  },
+
+  async confirmDelete() {
+    const typed = document.getElementById('deleteConfirmInput').value.trim();
+    if (typed !== 'DELETE') {
+      return this.showMessage('Type DELETE exactly (all caps) to confirm.');
+    }
+
+    this.showMessage('Deleting your account…', 'success');
+
+    try {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/account`, { method: 'DELETE' });
+      if (!res.ok) {
+        let detail = '';
+        try { const d = await res.json(); detail = (typeof d?.detail === 'string') ? d.detail : ''; } catch (e) { /* not JSON */ }
+        return this.showMessage(detail || 'Account deletion failed. Please try again or contact Saurabh.');
+      }
+    } catch (e) {
+      return this.showMessage('Deletion failed — could not reach the server. Please try again.');
+    }
+
+    // Success — clear everything and drop back to the login screen.
+    // No broken app state pointing at data that no longer exists.
+    localStorage.clear();
+    await AuthAgent.signOut();
+    location.reload();
+  }
+};
+
 // ─── UTILS ──────────────────────────────────────────────────
 function getCurrentDateTime() {
   const now = new Date();
