@@ -228,7 +228,7 @@ function getCurrentDateTime() {
 
 async function detectMood(text) {
   try {
-    const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+    const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -336,7 +336,7 @@ const MemoryAgent = {
   async updateSmartMemory(userMessage, aiReply) {
     try {
       const existing = this.getSmartMemory();
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -405,7 +405,7 @@ const MoodAgent = {
     if (MemoryAgent.conversation.length < 4) return null;
     try {
       const transcript = MemoryAgent.conversation.map(m => `${m.role}: ${m.content}`).join('\n');
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -522,7 +522,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
   async classifyTopicUrgency() {
     if (!STATE.previousKeyTopics) return 'NONE';
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -586,7 +586,7 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
       localStorage.setItem('sevo_last_checkin', new Date().toISOString().split('T')[0]);
       
       try {
-        const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+        const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -785,7 +785,7 @@ const WorldAgent = {
     ];
 
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1529,7 +1529,7 @@ const PCAgent = {
 
   async execute(text) {
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1881,7 +1881,7 @@ CAPABILITIES: You can control ${USER_PROFILE.nickname}'s PC — open apps, websi
 
     let res;
     try {
-      res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1894,7 +1894,27 @@ CAPABILITIES: You can control ${USER_PROFILE.nickname}'s PC — open apps, websi
     } catch (e) {
       throw new Error('SEVO_OFFLINE');
     }
-    if (!res.ok) throw new Error('SEVO_OFFLINE');
+    if (!res.ok) {
+      // Phase 7 Spec 5 — structured rate-limit/abuse responses carry a
+      // typed `detail` object; anything else falls through to the
+      // existing generic offline handling unchanged.
+      let detail = null;
+      try { detail = (await res.json())?.detail; } catch (e) { /* not JSON, ignore */ }
+      if (detail && typeof detail === 'object') {
+        if (detail.type === 'rate_limit_cap') {
+          const err = new Error('SEVO_RATE_LIMITED');
+          err.capResetAt = detail.cap_reset_at;
+          throw err;
+        }
+        if (detail.type === 'blocked') {
+          throw new Error('SEVO_BLOCKED');
+        }
+        if (detail.type === 'system_overload') {
+          throw new Error('SEVO_OVERLOADED');
+        }
+      }
+      throw new Error('SEVO_OFFLINE');
+    }
     const data = await res.json();
     if (data.error) throw new Error(data.error.message || 'Backend error');
     const reply = parseBackendResponse(data);
@@ -1990,7 +2010,7 @@ const Coordinator = {
 
   async classify(text) {
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2239,6 +2259,20 @@ Examples:
         UI.addMessage('ai', fallback);
         if (STATE.voiceOutput) VoiceAgent.speak(fallback);
         UI.setStatus('SYSTEM ONLINE');
+      } else if (err?.message === 'SEVO_RATE_LIMITED') {
+        // Phase 7 Spec 5 — no silent rejection: a real bubble with a
+        // live-ticking countdown to the user's personal cap_reset_at.
+        UI.addCountdownMessage('ai', err.capResetAt);
+        UI.setStatus('SYSTEM ONLINE');
+      } else if (err?.message === 'SEVO_BLOCKED') {
+        const fallback = "Your account's been flagged for unusual activity — message Saurabh directly to get this reviewed.";
+        UI.addMessage('ai', fallback);
+        UI.setStatus('SYSTEM ONLINE');
+      } else if (err?.message === 'SEVO_OVERLOADED') {
+        const fallback = "SEVO's handling a lot of requests right now. Give it a moment and try again.";
+        UI.addMessage('ai', fallback);
+        if (STATE.voiceOutput) VoiceAgent.speak(fallback);
+        UI.setStatus('SYSTEM ONLINE');
       } else {
         const friendly = ErrorAgent.diagnose(err, 'Chat');
         UI.addMessage('ai', `❌ ${friendly}`);
@@ -2268,6 +2302,42 @@ const UI = {
     div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${text.replace(/\n/g, '<br>')}</div>`;
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
+    return div;
+  },
+
+  // Phase 7 Spec 5 — live countdown to a user's personal cap_reset_at,
+  // recalculated client-side on each tick against the server-provided
+  // timestamp (not repeated polling), per the PRD's explicit requirement.
+  addCountdownMessage(role, resetAtIso) {
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.remove();
+    const chat = document.getElementById('chat');
+    const div = document.createElement('div');
+    div.className = `message ${role}`;
+    const avatar = role === 'ai' ? '⚡' : '👤';
+    const countdownId = `countdown-${Date.now()}`;
+    div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">You've hit your daily limit. Resets in <span id="${countdownId}">calculating...</span>.</div>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+
+    const resetAt = new Date(resetAtIso).getTime();
+    let intervalId = null;
+    const tick = () => {
+      const span = document.getElementById(countdownId);
+      if (!span) { if (intervalId) clearInterval(intervalId); return; }
+      const remaining = resetAt - Date.now();
+      if (remaining <= 0) {
+        span.textContent = 'now — try again!';
+        if (intervalId) clearInterval(intervalId);
+        return;
+      }
+      const totalMinutes = Math.floor(remaining / 60000);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      span.textContent = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+    };
+    tick();
+    intervalId = setInterval(tick, 60000);
     return div;
   },
 
@@ -2516,7 +2586,7 @@ async function proactiveGreeting() {
   }
 
   try {
-    const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+    const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2818,7 +2888,7 @@ agent: "file", "clipboard", "reminder"
 
   async plan(text) {
     try {
-      const res = await fetch(`${CONFIG.vercelUrl}/api/chat`, {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
