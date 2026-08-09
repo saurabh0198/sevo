@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   startGmailAuth: () => ipcRenderer.invoke('gmail-auth'),
+  startGoogleAuth: (url) => ipcRenderer.invoke('google-oauth', url),
   onAppClosing: (callback) => ipcRenderer.on('app-closing', callback),
   confirmReadyToClose: () => ipcRenderer.send('ready-to-close'),
 })

@@ -171,6 +171,118 @@ ipcMain.handle('gmail-auth', async () => {
   })
 })
 
+// ── GOOGLE SIGN-IN (Supabase, PKCE) — local server captures the code ─────
+// Same shape as the Gmail OAuth handler above (external browser + local
+// callback listener), on a separate port so the two never collide even
+// though they're never actually used at the same time. Unlike Gmail's flow,
+// this one doesn't exchange the code itself — the renderer already holds
+// the Supabase client and its PKCE code_verifier, so it calls
+// exchangeCodeForSession(code) directly once this resolves.
+let googleAuthServer = null
+
+ipcMain.handle('google-oauth', async (event, authUrl) => {
+  console.log('[Google OAuth] Handler invoked. authUrl:', authUrl)
+  return new Promise(async (resolve, reject) => {
+    try {
+      if (googleAuthServer) {
+        console.log('[Google OAuth] Closing a leftover server from a previous attempt')
+        try { googleAuthServer.close() } catch(_) {}
+        googleAuthServer = null
+        await new Promise(r => setTimeout(r, 500))
+      }
+
+      const code = await new Promise((resolveCode, rejectCode) => {
+        let resolved = false
+
+        googleAuthServer = http.createServer((req, res) => {
+          try {
+            const urlStr = req.url || '/'
+            console.log('[Google OAuth] Incoming request to local server:', urlStr)
+
+            if (urlStr === '/favicon.ico') {
+              res.writeHead(404)
+              res.end()
+              return
+            }
+
+            const url = new URL(urlStr, 'http://localhost:8766')
+            const code = url.searchParams.get('code')
+            const error = url.searchParams.get('error')
+            console.log('[Google OAuth] Parsed params — code present:', !!code, '| error present:', !!error, error || '')
+
+            if (error) {
+              res.writeHead(400, { 'Content-Type': 'text/html' })
+              res.end(`<h2>Sign-in failed: ${error}. You can close this tab.</h2>`)
+              if (!resolved) {
+                resolved = true
+                console.log('[Google OAuth] Rejecting — error param from redirect:', error)
+                rejectCode(new Error(`OAuth error: ${error}`))
+              }
+              return
+            }
+
+            if (code) {
+              res.writeHead(200, { 'Content-Type': 'text/html' })
+              res.end('<h2>SEVO: Signed in with Google. You can close this tab.</h2>')
+              if (!resolved) {
+                resolved = true
+                console.log('[Google OAuth] Resolving with code (first 10 chars):', code.slice(0, 10) + '...')
+                resolveCode(code)
+              }
+              return
+            }
+
+            console.log('[Google OAuth] Request had neither code nor error — ignoring, still waiting')
+            res.writeHead(200, { 'Content-Type': 'text/plain' })
+            res.end('Waiting for authorization...')
+          } catch(err) {
+            console.error('[Google OAuth] Error inside request handler:', err)
+            res.writeHead(500)
+            res.end('Error')
+          }
+        })
+
+        googleAuthServer.on('error', (err) => {
+          console.error('[Google OAuth] Local server itself errored (e.g. port already in use):', err)
+          if (!resolved) {
+            resolved = true
+            rejectCode(new Error(`Server error: ${err.message}`))
+          }
+        })
+
+        // Listen without explicit host to bind on both IPv4 and IPv6
+        googleAuthServer.listen(8766, () => {
+          console.log('[Google OAuth] Local server listening on port 8766. Opening system browser...')
+          shell.openExternal(authUrl)
+        })
+
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true
+            console.log('[Google OAuth] Timed out after 2 minutes — local server never received a callback with code or error')
+            rejectCode(new Error('OAuth timeout after 2 minutes'))
+          }
+        }, 120000)
+      })
+
+      if (googleAuthServer) {
+        googleAuthServer.close()
+        googleAuthServer = null
+      }
+
+      console.log('[Google OAuth] Handler resolving successfully with code')
+      resolve(code)
+    } catch (e) {
+      console.error('[Google OAuth] Handler caught an error, rejecting:', e)
+      if (googleAuthServer) {
+        try { googleAuthServer.close() } catch(_) {}
+        googleAuthServer = null
+      }
+      reject(e)
+    }
+  })
+})
+
 // ── VOICE — msedge-tts (Microsoft Edge Neural TTS) ──────────
 // Uses en-US-JennyNeural — warm, female, human-sounding.
 // Synthesizes MP3 and returns it as base64 to the frontend.

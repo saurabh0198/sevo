@@ -928,3 +928,38 @@ body.is-mobile .bubble {
 .password-toggle:hover {
   color: var(--accent);
 }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin: 12px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border2);
+}
+
+.auth-divider span {
+  padding: 0 10px;
+}
+
+.google-btn {
+  border-color: var(--border2);
+  color: var(--text);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.google-btn:hover {
+  border-color: var(--accent);
+  background: #00b4d810;
+  box-shadow: 0 0 15px var(--glow2);
+}
