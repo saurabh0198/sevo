@@ -1208,7 +1208,14 @@ const MusicAgent = {
     if (lower.includes('skip') || lower.includes('next song') || lower.includes('next track')) {
       return await this.skip();
     }
-    if (lower === 'stop' || lower === 'stop music' || lower === 'stop the music') {
+    // Broadened from exact-string matching (only caught "stop" / "stop
+    // music" / "stop the music" verbatim) to word-boundary keyword
+    // detection, so phrasings like "stop playing anything on YouTube
+    // until I ask" actually register as a stop command instead of
+    // silently falling through to a no-op. Guarded against messages
+    // that start with "play" (e.g. a song titled "Don't Stop
+    // Believin'") so those still play instead of stopping.
+    if (!/^play\b/i.test(text.trim()) && /\bstop\b/.test(lower)) {
       return await this.stop();
     }
     if (lower.includes('what are you playing') || lower.includes('what was that song') || lower.includes('last played') || lower.includes('what song')) {
@@ -1450,8 +1457,15 @@ const YouTubeAgent = {
   },
 
   async play(text) {
+    // Never fall back to searching the raw sentence when there's no
+    // clear "play X" pattern — that previously meant any message routed
+    // to the 'youtube' category without matching this regex (e.g. a
+    // stop command that happens to mention "YouTube") would get its
+    // entire text used as a search query and silently open whatever
+    // video YouTube returned. Do nothing instead of guessing.
     const match = text.match(/play (.+)/i);
-    const query = match ? match[1] : text;
+    if (!match) return null;
+    const query = match[1];
     const result = await this.search(query);
     if (result) {
       window.open(result.url, '_blank');
