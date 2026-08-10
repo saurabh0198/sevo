@@ -21,10 +21,12 @@
 
     <div id="authPanelSignin" class="auth-panel">
       <p>Sign in to continue.</p>
+      <label for="signinEmail" class="sr-only">Email</label>
       <input type="email" class="setup-input" id="signinEmail" placeholder="Email" autocomplete="username" />
       <div class="password-field">
+        <label for="signinPassword" class="sr-only">Password</label>
         <input type="password" class="setup-input" id="signinPassword" placeholder="Password" autocomplete="current-password" />
-        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signinPassword', this)" title="Show password">👁</button>
+        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signinPassword', this)" title="Show password" aria-label="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSignIn()">Sign in</button>
       <div class="auth-links">
@@ -35,10 +37,12 @@
 
     <div id="authPanelSignup" class="auth-panel" style="display:none;">
       <p>Create an account.</p>
+      <label for="signupEmail" class="sr-only">Email</label>
       <input type="email" class="setup-input" id="signupEmail" placeholder="Email" autocomplete="username" />
       <div class="password-field">
+        <label for="signupPassword" class="sr-only">Password (min 6 characters)</label>
         <input type="password" class="setup-input" id="signupPassword" placeholder="Password (min 6 characters)" autocomplete="new-password" />
-        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signupPassword', this)" title="Show password">👁</button>
+        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signupPassword', this)" title="Show password" aria-label="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSignUp()">Create account</button>
       <div class="auth-links">
@@ -48,6 +52,7 @@
 
     <div id="authPanelForgot" class="auth-panel" style="display:none;">
       <p>Enter your email — we'll send a reset link.</p>
+      <label for="forgotEmail" class="sr-only">Email</label>
       <input type="email" class="setup-input" id="forgotEmail" placeholder="Email" autocomplete="username" />
       <button class="setup-btn" onclick="AuthUI.handleForgotPassword()">Send reset link</button>
       <div class="auth-links">
@@ -58,12 +63,14 @@
     <div id="authPanelReset" class="auth-panel" style="display:none;">
       <p>Set a new password.</p>
       <div class="password-field">
+        <label for="resetPassword" class="sr-only">New password (min 6 characters)</label>
         <input type="password" class="setup-input" id="resetPassword" placeholder="New password (min 6 characters)" autocomplete="new-password" />
-        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('resetPassword', this)" title="Show password">👁</button>
+        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('resetPassword', this)" title="Show password" aria-label="Show password">👁</button>
       </div>
       <div class="password-field">
+        <label for="resetPasswordConfirm" class="sr-only">Confirm new password</label>
         <input type="password" class="setup-input" id="resetPasswordConfirm" placeholder="Confirm new password" autocomplete="new-password" />
-        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('resetPasswordConfirm', this)" title="Show password">👁</button>
+        <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('resetPasswordConfirm', this)" title="Show password" aria-label="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSetNewPassword()">Set password</button>
     </div>
@@ -73,8 +80,8 @@
 <div class="titlebar">
   <div class="titlebar-drag">S · E · V · O</div>
   <div class="titlebar-controls">
-    <button class="tb-btn minimize" onclick="window.electronAPI?.minimizeWindow()">─</button>
-    <button class="tb-btn close" onclick="window.electronAPI?.closeWindow()">✕</button>
+    <button class="tb-btn minimize" onclick="window.electronAPI?.minimizeWindow()" aria-label="Minimize window">─</button>
+    <button class="tb-btn close" onclick="window.electronAPI?.closeWindow()" aria-label="Close window">✕</button>
   </div>
 </div>
 
@@ -104,6 +111,7 @@
 
       <div id="deleteStep2" style="display:none;">
         <p>Type <strong>DELETE</strong> below to confirm. There is no undo.</p>
+        <label for="deleteConfirmInput" class="sr-only">Type DELETE to confirm account deletion</label>
         <input type="text" class="setup-input" id="deleteConfirmInput" placeholder="Type DELETE to confirm" autocomplete="off" />
         <button class="setup-btn danger-btn-solid" onclick="AccountUI.confirmDelete()">Permanently delete</button>
         <button class="setup-btn secondary-btn" onclick="AccountUI.cancelDelete()">Cancel</button>
@@ -130,9 +138,9 @@
     </div>
     <div class="topbar-right">
       <div id="weatherWidget" class="weather-pill" title="Weather">🌡️ --°C</div>
-      <button class="topbar-icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" aria-label="Toggle voice output">🔊</button>
+      <button class="topbar-icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" aria-label="Voice output on — tap to mute">🔊</button>
       <button class="topbar-icon-btn" onclick="clearChat()" aria-label="Clear conversation">🗑️</button>
-      <button class="topbar-icon-btn" onclick="GentleModeUI.enter()" aria-label="Enter gentle mode">🤍</button>
+      <button class="topbar-icon-btn" id="gentleModeHeartBtn" onclick="GentleModeUI.toggle()" aria-label="Enter gentle mode">🤍</button>
       <button class="topbar-icon-btn" onclick="AccountUI.openSettings()" aria-label="Settings">⚙️</button>
       <button class="topbar-icon-btn" onclick="AuthUI.logout()" aria-label="Log out">🚪</button>
       <div class="mode-pill" id="modePill" aria-label="Current mode: online">
@@ -159,7 +167,7 @@
   <footer class="composer-wrap">
     <div class="quick-chips">
       <button class="quick-chip" type="button" onclick="fillReminderPrompt()">Set a reminder</button>
-      <button class="quick-chip" type="button" onclick="GentleModeUI.enter()">Gentle mode</button>
+      <button class="quick-chip" type="button" onclick="GentleModeUI.toggle()">Gentle mode</button>
     </div>
     <form class="composer-box" onsubmit="event.preventDefault(); sendMessage();">
       <label for="userInput" class="sr-only">Type your message</label>
@@ -175,7 +183,7 @@
 </div>
 
 <div id="ytPlayerWidget" class="yt-player-widget" style="display:none;">
-  <button id="ytCloseBtn" class="yt-close-btn" onclick="YTPlayerAgent.stop()" title="Close player">✕</button>
+  <button id="ytCloseBtn" class="yt-close-btn" onclick="YTPlayerAgent.stop()" title="Close player" aria-label="Close video player">✕</button>
   <div id="ytPlayerFrame"></div>
   <button id="ytUnmuteBtn" class="yt-unmute-btn" style="display:none;" onclick="YTPlayerAgent.unmute()">🔇 Tap to unmute</button>
 </div>

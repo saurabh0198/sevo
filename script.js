@@ -214,7 +214,9 @@ const AuthUI = {
     const isHidden = input.type === 'password';
     input.type = isHidden ? 'text' : 'password';
     btn.textContent = isHidden ? '🙈' : '👁';
-    btn.title = isHidden ? 'Hide password' : 'Show password';
+    const label = isHidden ? 'Hide password' : 'Show password';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
   }
 };
 
@@ -308,6 +310,18 @@ const AccountUI = {
 // calmer, more spacious system prompt for companion replies.
 // ============================================================
 const GentleModeUI = {
+  // Real usability finding from testing: entering used the heart icon,
+  // exiting used the mode pill — two different, non-obvious controls.
+  // toggle() is now the actual entry point for both the heart icon and
+  // the quick-chip, so the same control works both ways as users
+  // naturally expect. The mode-pill-as-exit-control stays too — a
+  // redundant second way to exit is fine, having only ONE inconsistent
+  // way to enter/exit was the actual problem.
+  toggle() {
+    if (STATE.gentleMode) this.exit();
+    else this.enter();
+  },
+
   enter() {
     if (STATE.gentleMode) return;
     STATE.gentleMode = true;
@@ -320,6 +334,9 @@ const GentleModeUI = {
     pill.classList.add('exitable');
     pill.onclick = () => GentleModeUI.exit();
     pill.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); GentleModeUI.exit(); } };
+
+    const heartBtn = document.getElementById('gentleModeHeartBtn');
+    if (heartBtn) heartBtn.setAttribute('aria-label', 'Exit gentle mode');
 
     document.getElementById('userInput').placeholder = "I'm listening...";
     const chips = document.querySelector('.quick-chips');
@@ -342,6 +359,9 @@ const GentleModeUI = {
     pill.classList.remove('exitable');
     pill.onclick = null;
     pill.onkeydown = null;
+
+    const heartBtn = document.getElementById('gentleModeHeartBtn');
+    if (heartBtn) heartBtn.setAttribute('aria-label', 'Enter gentle mode');
 
     document.getElementById('userInput').placeholder = 'Talk to me...';
     const chips = document.querySelector('.quick-chips');
@@ -2683,8 +2703,10 @@ function playWakeSound() {
 
 function resetRecordingUI() {
   STATE.isRecording = false;
-  document.getElementById('voiceBtn').classList.remove('recording');
-  document.getElementById('voiceBtn').textContent = '🎤';
+  const btn = document.getElementById('voiceBtn');
+  btn.classList.remove('recording');
+  btn.textContent = '🎤';
+  btn.setAttribute('aria-label', 'Voice input');
   UI.setStatus('SYSTEM ONLINE');
 }
 
@@ -2703,8 +2725,10 @@ function toggleVoice() {
   STATE.recognition.continuous = false;
   STATE.recognition.interimResults = false;
   STATE.recognition.onstart = () => {
-    document.getElementById('voiceBtn').classList.add('recording');
-    document.getElementById('voiceBtn').textContent = '⏹️';
+    const btn = document.getElementById('voiceBtn');
+    btn.classList.add('recording');
+    btn.textContent = '⏹️';
+    btn.setAttribute('aria-label', 'Stop recording');
     UI.setStatus('listening...');
   };
   STATE.recognition.onresult = (e) => {
@@ -2720,7 +2744,9 @@ function toggleVoice() {
 
 function toggleVoiceOutput() {
   STATE.voiceOutput = !STATE.voiceOutput;
-  document.getElementById('speakerBtn').textContent = STATE.voiceOutput ? '🔊' : '🔇';
+  const btn = document.getElementById('speakerBtn');
+  btn.textContent = STATE.voiceOutput ? '🔊' : '🔇';
+  btn.setAttribute('aria-label', STATE.voiceOutput ? 'Voice output on — tap to mute' : 'Voice output off — tap to unmute');
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   if (!STATE.voiceOutput) document.getElementById('mainAvatar').classList.remove('speaking');
 }

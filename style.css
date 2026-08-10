@@ -1118,10 +1118,23 @@ body.is-mobile .bubble {
 
 /* Phase 7 Spec 7 — while in gentle mode, the pill itself becomes the
    exit control: it's the one thing always visible showing current
-   state, so making it tappable there is the most discoverable exit. */
+   state, so making it tappable there is the most discoverable exit.
+   Kept visually small to match the reference's pill sizing — the
+   ::before expands the actual tappable area to 44px without changing
+   how it looks, rather than inflating the pill itself. */
 .mode-pill.exitable {
   cursor: pointer;
+  position: relative;
   transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mode-pill.exitable::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  transform: translateY(-50%);
 }
 .mode-pill.exitable:hover {
   background: #8FA98F33;
@@ -1441,7 +1454,8 @@ body.is-mobile .bubble {
 /* 44px touch targets on mobile, matching the existing body.is-mobile pattern */
 body.is-mobile .topbar-icon-btn,
 body.is-mobile .composer-icon-btn,
-body.is-mobile .send-btn {
+body.is-mobile .send-btn,
+body.is-mobile .quick-chip {
   min-width: 44px;
   min-height: 44px;
 }
@@ -1450,11 +1464,12 @@ body.is-mobile .composer-box textarea {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mode-dot, .typing-dot, .voice-indicator.speaking {
+  .mode-dot, .typing-dot, .voice-indicator.speaking,
+  .frame .welcome, .msg, .composer-icon-btn.recording {
     animation: none;
   }
   .thread { scroll-behavior: auto; }
-  .support-option, .send-btn, .composer-box, .quick-chip, .frame .suggestion-chip, .topbar-icon-btn {
+  .support-option, .send-btn, .composer-box, .quick-chip, .frame .suggestion-chip, .topbar-icon-btn, .mode-pill.exitable {
     transition: none;
   }
 }
