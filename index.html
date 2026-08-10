@@ -98,6 +98,21 @@
     <h2 class="serif">Settings</h2>
     <p id="settingsEmail" style="font-size:12px; color:var(--text-dim); margin-bottom:16px;"></p>
 
+    <div class="settings-section" id="personalitySection">
+      <h3 class="settings-section-label">PERSONALITY</h3>
+
+      <label for="addressNameInput" class="sr-only">What should SEVO call you? Optional.</label>
+      <input type="text" class="setup-input" id="addressNameInput" placeholder="What should I call you? (optional)" maxlength="30" autocomplete="off" oninput="sanitizeAddressNameInput(this)" onblur="PersonalityUI.saveName()" />
+
+      <div class="tone-options" role="group" aria-label="Tone preset">
+        <button type="button" class="tone-btn" id="toneBtnCasual" onclick="PersonalityUI.selectTone('casual')" aria-pressed="false">Casual</button>
+        <button type="button" class="tone-btn" id="toneBtnBalanced" onclick="PersonalityUI.selectTone('balanced')" aria-pressed="true">Balanced</button>
+        <button type="button" class="tone-btn" id="toneBtnProfessional" onclick="PersonalityUI.selectTone('professional')" aria-pressed="false">Professional</button>
+      </div>
+
+      <div id="personalityMessage" class="auth-message" style="display:none;"></div>
+    </div>
+
     <button class="setup-btn secondary-btn" onclick="AccountUI.resetLocalData()">Reset local app data</button>
 
     <div class="danger-zone">
@@ -132,9 +147,12 @@
 <div class="frame">
 
   <header class="topbar">
-    <div class="topbar-brand">
-      <b id="assistantTitle">SEVO</b> · with you
-      <span id="mainAvatar" class="voice-indicator" aria-hidden="true"></span>
+    <div class="topbar-left">
+      <div class="topbar-brand">
+        <b id="assistantTitle">SEVO</b> · with you
+        <span id="mainAvatar" class="voice-indicator" aria-hidden="true"></span>
+      </div>
+      <button type="button" class="personality-label" id="personalityLabel" onclick="PersonalityUI.openFromLabel()" aria-label="Current tone: Balanced — tap to change personality settings">Balanced</button>
     </div>
     <div class="topbar-right">
       <div id="weatherWidget" class="weather-pill" title="Weather">🌡️ --°C</div>

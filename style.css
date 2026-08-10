@@ -336,6 +336,59 @@ header::after {
   justify-content: center;
 }
 
+/* Personality Presets — settings-panel section, reuses .setup-card's
+   shell. Section label matches .support-card-label/.danger-zone h3's
+   small-mono-uppercase treatment, --calm since this isn't a warning. */
+.settings-section {
+  margin-bottom: 20px;
+  text-align: left;
+}
+.settings-section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--calm);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.tone-options {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 4px 0;
+}
+.tone-btn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 6px;
+  color: var(--text-dim);
+  font-family: 'Inter', sans-serif;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  min-height: 44px;
+}
+.tone-btn:hover {
+  border-color: var(--calm);
+  color: var(--calm);
+  background: var(--calm-hover);
+}
+.tone-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.tone-btn.active {
+  background: var(--calm);
+  border-color: var(--calm);
+  color: var(--bg);
+  font-weight: 600;
+}
+.tone-btn.active:hover {
+  background: #9EBA9E;
+}
+
 /* Phase 7 Spec 6 — account deletion danger zone, reuses .setup-card's
    shell but visually separated + red-flagged so it never reads as
    just another settings button. Red kept as a universal warning color
@@ -1029,6 +1082,13 @@ body.is-mobile .bubble {
   flex-shrink: 0;
 }
 
+.topbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .topbar-brand {
   font-family: 'Source Serif 4', Georgia, serif;
   font-size: 14px;
@@ -1038,6 +1098,43 @@ body.is-mobile .bubble {
   gap: 8px;
 }
 .topbar-brand b { color: var(--text); }
+
+/* Personality Presets — quiet status label, tapping jumps into the
+   settings panel's Personality section. Kept visually small (matches
+   "quiet" requirement) but the tappable area is invisibly expanded to
+   44px, same technique as .mode-pill.exitable — the reference's small
+   pill/label sizing stays intact, only the hit target grows. */
+.personality-label {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  align-self: flex-start;
+  transition: color 0.15s ease;
+}
+.personality-label::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.personality-label:hover {
+  color: var(--calm);
+}
+.personality-label:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
 
 .voice-indicator {
   width: 6px;
@@ -1469,7 +1566,7 @@ body.is-mobile .composer-box textarea {
     animation: none;
   }
   .thread { scroll-behavior: auto; }
-  .support-option, .send-btn, .composer-box, .quick-chip, .frame .suggestion-chip, .topbar-icon-btn, .mode-pill.exitable {
+  .support-option, .send-btn, .composer-box, .quick-chip, .frame .suggestion-chip, .topbar-icon-btn, .mode-pill.exitable, .personality-label, .tone-btn {
     transition: none;
   }
 }

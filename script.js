@@ -34,6 +34,11 @@ const USER_PROFILE = {
 // ─── SHARED STATE ───────────────────────────────────────────
 const STATE = {
   gentleMode: false, // Phase 7 Spec 7 — user-triggered only, no auto-detection
+  // Personality Presets — loaded once per session (PersonalityUI.load(),
+  // called from bootApp), cached here, sent with each companion /api/chat
+  // call. Never re-fetched per message; only refreshed on explicit save.
+  tonePreset: 'balanced',
+  addressName: '',
   voiceOutput: true,
   isRecording: false,
   recognition: null,
@@ -235,6 +240,7 @@ const AccountUI = {
     document.getElementById('deleteStep2').style.display = 'none';
     document.getElementById('deleteConfirmInput').value = '';
     this.clearMessage();
+    PersonalityUI.populateForm();
   },
 
   closeSettings() {
@@ -303,6 +309,134 @@ const AccountUI = {
 };
 
 // ============================================================
+// PERSONALITY PRESETS — user-configurable tone + address name.
+// Loaded once per session (bootApp calls load()), cached on STATE,
+// sent with every companion /api/chat call via ChatAgent.respond.
+// Never re-fetched per message — only refreshed on explicit save here.
+// ============================================================
+const TONE_LABELS = { casual: 'Casual', balanced: 'Balanced', professional: 'Professional' };
+
+const PersonalityUI = {
+  async load() {
+    try {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/personality`);
+      if (res.ok) {
+        const data = await res.json();
+        STATE.tonePreset = data.tone_preset || 'balanced';
+        STATE.addressName = data.address_name || '';
+      }
+      // Failure here just means we keep STATE's defaults (balanced,
+      // empty name) — same fail-open approach as other session-init
+      // loads in bootApp, no reason to block boot over this.
+    } catch (e) { /* keep defaults */ }
+    this.updateHeaderLabel();
+  },
+
+  // Gentle Mode takes full precedence over the tone label here too —
+  // the underlying tonePreset stays stored/cached, just suspended from
+  // display (and from the backend prompt) while gentle mode is active.
+  updateHeaderLabel() {
+    const label = document.getElementById('personalityLabel');
+    if (!label) return;
+    const name = STATE.addressName;
+    let text;
+    if (STATE.gentleMode) {
+      text = name ? `Gentle · ${name}` : 'Gentle';
+    } else {
+      const toneLabel = TONE_LABELS[STATE.tonePreset] || 'Balanced';
+      text = name ? `${toneLabel} · ${name}` : toneLabel;
+    }
+    label.textContent = text;
+    label.setAttribute('aria-label', `Current tone: ${text} — tap to change personality settings`);
+  },
+
+  // Tapping the header label is a shortcut into the same settings
+  // panel's Personality section — not a separate control.
+  openFromLabel() {
+    AccountUI.openSettings();
+    const section = document.getElementById('personalitySection');
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  },
+
+  // Called by AccountUI.openSettings() so the form always reflects
+  // the current cached values, regardless of which entry point (gear
+  // icon or header label) opened the panel.
+  populateForm() {
+    const input = document.getElementById('addressNameInput');
+    if (input) input.value = STATE.addressName;
+    this.setActiveToneButton(STATE.tonePreset);
+  },
+
+  setActiveToneButton(tone) {
+    Object.keys(TONE_LABELS).forEach((t) => {
+      const btn = document.getElementById(`toneBtn${t.charAt(0).toUpperCase()}${t.slice(1)}`);
+      if (!btn) return;
+      const isActive = t === tone;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  },
+
+  // Tone buttons save immediately on tap — matches Gentle Mode's own
+  // immediate-toggle pattern, no separate confirm step needed for a
+  // non-destructive preference.
+  async selectTone(tone) {
+    this.setActiveToneButton(tone);
+    const nameInput = document.getElementById('addressNameInput');
+    await this.save(tone, nameInput ? nameInput.value.trim() : STATE.addressName);
+  },
+
+  // Address name saves on blur instead of per-keystroke — a text
+  // field getting a network call on every character would be wasteful.
+  async saveName() {
+    const nameInput = document.getElementById('addressNameInput');
+    const name = nameInput ? nameInput.value.trim() : '';
+    if (name === STATE.addressName) return; // nothing changed, skip the call
+    await this.save(STATE.tonePreset, name);
+  },
+
+  async save(tone, name) {
+    const msgEl = document.getElementById('personalityMessage');
+    try {
+      const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/personality`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tone_preset: tone, address_name: name })
+      });
+      if (!res.ok) throw new Error('save failed');
+      const data = await res.json();
+      STATE.tonePreset = data.tone_preset;
+      STATE.addressName = data.address_name;
+      this.updateHeaderLabel();
+      this.setActiveToneButton(STATE.tonePreset);
+      const nameInput = document.getElementById('addressNameInput');
+      // Backend may have sanitized the name further than the client-side
+      // stripping already did (e.g. an injection-pattern match) — reflect
+      // whatever actually got saved, not just what was typed.
+      if (nameInput) nameInput.value = STATE.addressName;
+      if (msgEl) msgEl.style.display = 'none';
+    } catch (e) {
+      if (msgEl) {
+        msgEl.textContent = "Couldn't save that — try again.";
+        msgEl.className = 'auth-message error';
+        msgEl.style.display = 'block';
+      }
+    }
+  }
+};
+
+// Live character/length stripping as the user types — matches the
+// backend's sanitize_address_name() allowed-character set, so typing
+// something invalid corrects immediately instead of silently changing
+// after save. The backend's injection-pattern rejection is NOT
+// duplicated here (hard to do smoothly as-you-type) — that stays the
+// authoritative security boundary server-side.
+function sanitizeAddressNameInput(el) {
+  const cleaned = el.value.replace(/[^A-Za-z0-9 '\-]/g, '').slice(0, 30);
+  if (cleaned !== el.value) el.value = cleaned;
+}
+
+// ============================================================
 // GENTLE MODE — Phase 7 Spec 7. User-triggered only, both directions —
 // entering and exiting are always an explicit click, never automatic
 // (no mood-based auto-detection, no timeout). STATE.gentleMode gates
@@ -344,6 +478,11 @@ const GentleModeUI = {
     const stateLine = document.querySelector('.composer-wrap .state-line');
     if (stateLine) stateLine.textContent = 'no jokes, no hype — just listening. This space is yours.';
 
+    // Personality Presets — Gentle Mode takes over the header label
+    // display too, per spec (tone stays cached/stored, just suspended
+    // from display and from the backend prompt while active).
+    PersonalityUI.updateHeaderLabel();
+
     UI.addMessage('ai', "I'm here. Take your time — what's going on?");
   },
 
@@ -368,6 +507,8 @@ const GentleModeUI = {
     if (chips) chips.style.display = 'flex';
     const stateLine = document.querySelector('.composer-wrap .state-line');
     if (stateLine) stateLine.textContent = 'enter to send · shift+enter for new line';
+
+    PersonalityUI.updateHeaderLabel();
   },
 
   // Placeholder only, per explicit scope — real message-drafting is a
@@ -2092,6 +2233,8 @@ CAPABILITIES: You can control ${USER_PROFILE.nickname}'s PC — open apps, websi
         body: JSON.stringify({
           call_type: 'companion',
           mode: STATE.gentleMode ? 'gentle' : 'normal',
+          tone: STATE.tonePreset,
+          address_name: STATE.addressName,
           system: systemPrompt,
           context_blocks: contextBlocks,
           messages: MemoryAgent.getRecent(20)
@@ -2924,6 +3067,10 @@ window.addEventListener('online', () => {
 // ============================================================
 async function bootApp() {
   updateAssistantName();
+  // Loaded early and awaited (not fire-and-forget) so STATE.tonePreset/
+  // addressName are populated before proactiveGreeting or any other
+  // companion call could possibly fire.
+  await PersonalityUI.load();
   startWakeWord();
   fetchWeather();
   ReminderAgent.init();
