@@ -929,37 +929,495 @@ body.is-mobile .bubble {
   color: var(--accent);
 }
 
-.auth-divider {
+/* ============================================================
+   PHASE 7 SPEC 7 — VISUAL REDESIGN: MAIN CHAT SCREEN
+   Implements Saurabh's reference HTML/CSS exactly for fonts, color
+   tokens, and component patterns. Tokens are scoped to .frame (not
+   :root) rather than replacing the old palette globally — auth,
+   settings, and the Electron titlebar/statusbar haven't been
+   redesigned yet (later checkpoints) and still rely on the old
+   ice-blue tokens at :root. When those screens get redesigned, this
+   scoping goes away and .frame's tokens move to :root as the one
+   real palette.
+   ============================================================ */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.serif { font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif; }
+
+.frame {
+  --bg: #14130F;
+  --panel: #1B1915;
+  --line: #2A261E;
+  --text: #EDE8DE;
+  --text-dim: #B0A898;
+  --text-faint: #8A8478;
+  --calm: #8FA98F;
+  --calm-soft: #8FA98F1A;
+  --calm-hover: #8FA98F0D;
+  --radius: 10px;
+  --focus: #A8C4A8;
+
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  position: relative;
+  z-index: 1;
+}
+
+/* Topbar */
+.topbar {
+  padding: 20px 24px 14px 24px;
   display: flex;
   align-items: center;
-  text-align: center;
-  color: var(--muted);
-  font-size: 9px;
-  letter-spacing: 1px;
-  margin: 12px 0;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
+.topbar-brand {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 14px;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.topbar-brand b { color: var(--text); }
+
+.voice-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+.voice-indicator.speaking {
+  background: var(--calm);
+  box-shadow: 0 0 8px var(--calm);
+  animation: voicePulse 0.9s ease-in-out infinite;
+}
+@keyframes voicePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar-icon-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+.topbar-icon-btn:hover {
+  color: var(--calm);
+  background: var(--calm-hover);
+}
+.topbar-icon-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.weather-pill {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  padding: 5px 9px;
+  cursor: default;
+}
+
+.mode-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--calm);
+  background: var(--calm-soft);
+  border: 1px solid #8FA98F33;
+  border-radius: 20px;
+  padding: 5px 11px;
+  margin-left: 4px;
+}
+.mode-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--calm);
+  animation: modePulse 3s ease-in-out infinite;
+}
+
+/* Phase 7 Spec 7 — while in gentle mode, the pill itself becomes the
+   exit control: it's the one thing always visible showing current
+   state, so making it tappable there is the most discoverable exit. */
+.mode-pill.exitable {
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.mode-pill.exitable:hover {
+  background: #8FA98F33;
+  border-color: #8FA98F55;
+}
+.mode-pill.exitable:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+@keyframes modePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.topbar-line {
+  border-bottom: 1px solid var(--line);
+  margin: 0 24px;
+  flex-shrink: 0;
+}
+
+/* Thread */
+.thread {
   flex: 1;
-  height: 1px;
-  background: var(--border2);
+  overflow-y: auto;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  list-style: none;
+  scroll-behavior: smooth;
 }
 
-.auth-divider span {
-  padding: 0 10px;
+.frame .welcome {
+  text-align: center;
+  padding: 40px 20px;
+  animation: fadeUp 0.6s ease;
+  list-style: none;
 }
-
-.google-btn {
-  border-color: var(--border2);
+.frame .welcome h2 {
+  font-size: 22px;
+  font-weight: 500;
   color: var(--text);
-  box-shadow: none;
-  text-shadow: none;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+.frame .welcome p {
+  color: var(--text-dim);
+  font-size: 13px;
 }
 
-.google-btn:hover {
-  border-color: var(--accent);
-  background: #00b4d810;
-  box-shadow: 0 0 15px var(--glow2);
+.frame .suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.frame .suggestion-chip {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 8px 13px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 44px;
+}
+.frame .suggestion-chip:hover,
+.frame .suggestion-chip:focus-visible {
+  border-color: var(--calm);
+  color: var(--calm);
+  background: var(--calm-hover);
+}
+.frame .suggestion-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.msg {
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: fadeUp 0.25s ease;
+}
+.msg.user { align-self: flex-end; }
+.msg.sevo { align-self: flex-start; }
+
+.msg-tag {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.5px;
+}
+.msg.user .msg-tag { text-align: right; }
+
+.msg-body {
+  font-size: 15px;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.msg.sevo .msg-body {
+  font-family: 'Source Serif 4', Georgia, serif;
+  color: var(--text);
+}
+.msg.user .msg-body {
+  font-family: 'Inter', sans-serif;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 11px 14px;
+}
+
+/* Typing indicator — calm and understated, not a bouncing "thinking" animation */
+.msg.typing .msg-body {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+  letter-spacing: 0.3px;
+}
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  animation: modePulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* Support Card — reusable pattern, not just for Gentle Mode */
+.support-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 2px;
+}
+.support-card-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--calm);
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.support-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--text-dim);
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  min-height: 44px;
+  font-family: 'Inter', sans-serif;
+}
+.support-option:first-of-type { border-top: none; }
+.support-option b { color: var(--text); font-weight: 500; }
+.support-option .go {
+  color: var(--text-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+.support-option:hover,
+.support-option:focus {
+  color: var(--text);
+  outline: none;
+}
+.support-option:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.support-option:hover .go,
+.support-option:focus .go {
+  color: var(--calm);
+}
+
+/* Composer */
+.composer-wrap {
+  padding: 10px 24px 22px 24px;
+  flex-shrink: 0;
+}
+
+.quick-chips {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.quick-chip {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-height: 36px;
+}
+.quick-chip:hover,
+.quick-chip:focus-visible {
+  border-color: var(--calm);
+  color: var(--calm);
+  background: var(--calm-hover);
+}
+.quick-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.composer-box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: flex-end;
+  padding: 4px 6px 4px 16px;
+  gap: 8px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.composer-box:focus-within {
+  border-color: var(--calm);
+  box-shadow: 0 0 0 3px var(--calm-soft);
+}
+.composer-box textarea {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  padding: 12px 0;
+  resize: none;
+  max-height: 120px;
+  line-height: 1.5;
+}
+.composer-box textarea::placeholder { color: var(--text-faint); }
+
+.composer-icon-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: color 0.15s ease;
+}
+.composer-icon-btn:hover { color: var(--calm); }
+.composer-icon-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.composer-icon-btn.recording {
+  color: var(--red);
+  animation: recordPulse 1s ease-in-out infinite;
+}
+
+.send-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 8px;
+  background: var(--calm);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.2s ease;
+}
+.send-btn:hover { background: #9EBA9E; }
+.send-btn:active { transform: scale(0.96); }
+.send-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.send-btn svg { width: 14px; height: 14px; pointer-events: none; }
+
+.state-line {
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+/* 44px touch targets on mobile, matching the existing body.is-mobile pattern */
+body.is-mobile .topbar-icon-btn,
+body.is-mobile .composer-icon-btn,
+body.is-mobile .send-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+body.is-mobile .composer-box textarea {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-dot, .typing-dot, .voice-indicator.speaking {
+    animation: none;
+  }
+  .thread { scroll-behavior: auto; }
+  .support-option, .send-btn, .composer-box, .quick-chip, .frame .suggestion-chip, .topbar-icon-btn {
+    transition: none;
+  }
 }

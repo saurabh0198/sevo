@@ -33,6 +33,7 @@ const USER_PROFILE = {
 
 // ─── SHARED STATE ───────────────────────────────────────────
 const STATE = {
+  gentleMode: false, // Phase 7 Spec 7 — user-triggered only, no auto-detection
   voiceOutput: true,
   isRecording: false,
   recognition: null,
@@ -62,12 +63,7 @@ const AuthAgent = {
   session: null,
 
   init() {
-    // PKCE (not the default implicit flow): Google's redirect in Electron is
-    // caught by a plain local http server, which can only ever see query
-    // params, never the URL fragment implicit-flow tokens arrive in.
-    this.client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
-      auth: { flowType: 'pkce' }
-    });
+    this.client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
     this.client.auth.onAuthStateChange((event, session) => {
       this.session = session;
       if (event === 'PASSWORD_RECOVERY') {
@@ -121,28 +117,6 @@ const AuthAgent = {
 
   async updatePassword(newPassword) {
     return await this.client.auth.updateUser({ password: newPassword });
-  },
-
-  // PWA/browser: standard full-page redirect, no custom handling needed —
-  // detectSessionInUrl picks the session up automatically on return.
-  async signInWithGoogleWeb() {
-    return await this.client.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: CONFIG.appUrl }
-    });
-  },
-
-  // Electron: skipBrowserRedirect so the SDK just hands back the URL
-  // instead of navigating this window — main.js opens it externally.
-  async getGoogleOAuthUrl() {
-    return await this.client.auth.signInWithOAuth({
-      provider: 'google',
-      options: { skipBrowserRedirect: true, redirectTo: 'http://localhost:8766' }
-    });
-  },
-
-  async exchangeCodeForSession(code) {
-    return await this.client.auth.exchangeCodeForSession(code);
   }
 };
 
@@ -185,45 +159,6 @@ const AuthUI = {
 
     document.getElementById('setup').style.display = 'none';
     await bootApp();
-  },
-
-  async handleGoogleSignIn() {
-    this.clearMessage();
-    const isElectron = !!window.electronAPI?.startGoogleAuth;
-    console.log('[AuthUI] handleGoogleSignIn — Electron path:', isElectron);
-
-    if (isElectron) {
-      // Electron: get the auth URL without navigating this window, open it
-      // in the system browser, wait for main.js's local server to catch the
-      // redirect and hand back the code, then finish the PKCE exchange here.
-      const { data, error } = await AuthAgent.getGoogleOAuthUrl();
-      console.log('[AuthUI] getGoogleOAuthUrl ->', { url: data?.url, error });
-      if (error) return this.showMessage(error.message);
-
-      let code;
-      try {
-        console.log('[AuthUI] Calling electronAPI.startGoogleAuth, waiting on main process...');
-        code = await window.electronAPI.startGoogleAuth(data.url);
-        console.log('[AuthUI] startGoogleAuth resolved with code (first 10 chars):', code ? code.slice(0, 10) + '...' : code);
-      } catch (e) {
-        console.error('[AuthUI] startGoogleAuth rejected:', e);
-        return this.showMessage(e.message || 'Google sign-in failed.');
-      }
-
-      const { data: exchangeData, error: exchangeError } = await AuthAgent.exchangeCodeForSession(code);
-      console.log('[AuthUI] exchangeCodeForSession ->', { session: !!exchangeData?.session, error: exchangeError });
-      if (exchangeError) return this.showMessage(exchangeError.message);
-
-      console.log('[AuthUI] Google sign-in complete, booting app');
-      document.getElementById('setup').style.display = 'none';
-      await bootApp();
-    } else {
-      // PWA/browser: full-page redirect to Google, then back — nothing
-      // further to do here, window.onload picks up the session on return.
-      const { error } = await AuthAgent.signInWithGoogleWeb();
-      console.log('[AuthUI] signInWithGoogleWeb ->', { error });
-      if (error) return this.showMessage(error.message);
-    }
   },
 
   async handleSignUp() {
@@ -365,6 +300,67 @@ const AccountUI = {
   }
 };
 
+// ============================================================
+// GENTLE MODE — Phase 7 Spec 7. User-triggered only, both directions —
+// entering and exiting are always an explicit click, never automatic
+// (no mood-based auto-detection, no timeout). STATE.gentleMode gates
+// ChatAgent.respond's `mode` field, which main.py uses to swap in a
+// calmer, more spacious system prompt for companion replies.
+// ============================================================
+const GentleModeUI = {
+  enter() {
+    if (STATE.gentleMode) return;
+    STATE.gentleMode = true;
+
+    const pill = document.getElementById('modePill');
+    document.getElementById('modePillText').textContent = 'gentle mode';
+    pill.setAttribute('aria-label', 'Currently in gentle mode — activate to exit');
+    pill.setAttribute('role', 'button');
+    pill.setAttribute('tabindex', '0');
+    pill.classList.add('exitable');
+    pill.onclick = () => GentleModeUI.exit();
+    pill.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); GentleModeUI.exit(); } };
+
+    document.getElementById('userInput').placeholder = "I'm listening...";
+    const chips = document.querySelector('.quick-chips');
+    if (chips) chips.style.display = 'none';
+    const stateLine = document.querySelector('.composer-wrap .state-line');
+    if (stateLine) stateLine.textContent = 'no jokes, no hype — just listening. This space is yours.';
+
+    UI.addMessage('ai', "I'm here. Take your time — what's going on?");
+  },
+
+  exit() {
+    if (!STATE.gentleMode) return;
+    STATE.gentleMode = false;
+
+    const pill = document.getElementById('modePill');
+    document.getElementById('modePillText').textContent = 'online';
+    pill.setAttribute('aria-label', 'Current mode: online');
+    pill.removeAttribute('role');
+    pill.removeAttribute('tabindex');
+    pill.classList.remove('exitable');
+    pill.onclick = null;
+    pill.onkeydown = null;
+
+    document.getElementById('userInput').placeholder = 'Talk to me...';
+    const chips = document.querySelector('.quick-chips');
+    if (chips) chips.style.display = 'flex';
+    const stateLine = document.querySelector('.composer-wrap .state-line');
+    if (stateLine) stateLine.textContent = 'enter to send · shift+enter for new line';
+  },
+
+  // Placeholder only, per explicit scope — real message-drafting is a
+  // separate, later spec due to its sensitivity.
+  messageAFriend() {
+    UI.addMessage('ai', "Message drafting is coming soon — I'm not quite ready to help write that yet. For now, it might help to reach out to them directly. 💙");
+  },
+
+  stayHere() {
+    document.getElementById('userInput').focus();
+  }
+};
+
 // ─── UTILS ──────────────────────────────────────────────────
 function getCurrentDateTime() {
   const now = new Date();
@@ -380,6 +376,13 @@ function getCurrentDateTime() {
 // comparison is needed (e.g. once-per-day gating).
 function getISTDateString() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+}
+
+// "YOU · 1:14 AM" / "SEVO · 1:14 AM" — the reference's msg-tag format.
+function formatMsgTag(role) {
+  const label = role === 'ai' ? 'SEVO' : 'YOU';
+  const time = new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
+  return `${label} · ${time}`;
 }
 
 async function detectMood(text) {
@@ -2068,6 +2071,7 @@ CAPABILITIES: You can control ${USER_PROFILE.nickname}'s PC — open apps, websi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           call_type: 'companion',
+          mode: STATE.gentleMode ? 'gentle' : 'normal',
           system: systemPrompt,
           context_blocks: contextBlocks,
           messages: MemoryAgent.getRecent(20)
@@ -2101,7 +2105,10 @@ CAPABILITIES: You can control ${USER_PROFILE.nickname}'s PC — open apps, websi
     if (data.error) throw new Error(data.error.message || 'Backend error');
     const reply = parseBackendResponse(data);
     if (!reply) throw new Error('Empty response from backend');
-    return reply;
+    // Phase 7 Spec 7 — gentle-mode responses may signal the support-card
+    // should appear alongside this message (backend's judgment call, not
+    // shown on every message — see main.py's gentle-mode instruction).
+    return { content: reply, showSupportCard: data?.show_support_card === true };
   }
 };
 
@@ -2408,10 +2415,12 @@ Examples:
     UI.setStatus('processing...');
 
     try {
-      const reply = await ChatAgent.respond(text, searchContext, detectedMood);
+      const result = await ChatAgent.respond(text, searchContext, detectedMood);
+      const reply = result.content;
       UI.removeTyping();
       await MemoryAgent.push('assistant', reply);
-      UI.addMessage('ai', reply);
+      const replyLi = UI.addMessage('ai', reply);
+      if (result.showSupportCard) UI.appendSupportCard(replyLi);
       UI.playTypeSound();
       UI.setStatus('SYSTEM ONLINE');
       if (STATE.voiceOutput) VoiceAgent.speak(reply);
@@ -2478,13 +2487,12 @@ const UI = {
     const welcome = document.getElementById('welcome');
     if (welcome) welcome.remove();
     const chat = document.getElementById('chat');
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-    const avatar = role === 'ai' ? '⚡' : '👤';
-    div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${text.replace(/\n/g, '<br>')}</div>`;
-    chat.appendChild(div);
+    const li = document.createElement('li');
+    li.className = `msg ${role === 'ai' ? 'sevo' : 'user'}`;
+    li.innerHTML = `<time class="msg-tag" datetime="${new Date().toISOString()}">${formatMsgTag(role)}</time><div class="msg-body">${text.replace(/\n/g, '<br>')}</div>`;
+    chat.appendChild(li);
     chat.scrollTop = chat.scrollHeight;
-    return div;
+    return li;
   },
 
   // Phase 7 Spec 5 — live countdown to a user's personal cap_reset_at,
@@ -2494,12 +2502,11 @@ const UI = {
     const welcome = document.getElementById('welcome');
     if (welcome) welcome.remove();
     const chat = document.getElementById('chat');
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-    const avatar = role === 'ai' ? '⚡' : '👤';
+    const li = document.createElement('li');
+    li.className = `msg ${role === 'ai' ? 'sevo' : 'user'}`;
     const countdownId = `countdown-${Date.now()}`;
-    div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">You've hit your daily limit. Resets in <span id="${countdownId}">calculating...</span>.</div>`;
-    chat.appendChild(div);
+    li.innerHTML = `<time class="msg-tag" datetime="${new Date().toISOString()}">${formatMsgTag(role)}</time><div class="msg-body">You've hit your daily limit. Resets in <span id="${countdownId}">calculating...</span>.</div>`;
+    chat.appendChild(li);
     chat.scrollTop = chat.scrollHeight;
 
     const resetAt = new Date(resetAtIso).getTime();
@@ -2520,22 +2527,50 @@ const UI = {
     };
     tick();
     intervalId = setInterval(tick, 60000);
-    return div;
+    return li;
   },
 
+  // Calm and understated per the redesign — small text + a single quiet
+  // pulsing dot, not a bouncing "thinking..." animation.
   addTyping() {
     const chat = document.getElementById('chat');
-    const div = document.createElement('div');
-    div.className = 'message ai typing';
-    div.id = 'typing';
-    div.innerHTML = `<div class="msg-avatar">⚡</div><div class="bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
-    chat.appendChild(div);
+    const li = document.createElement('li');
+    li.className = 'msg sevo typing';
+    li.id = 'typing';
+    li.innerHTML = `<div class="msg-body"><span class="typing-dot" aria-hidden="true"></span>Sevo is typing</div>`;
+    chat.appendChild(li);
     chat.scrollTop = chat.scrollHeight;
   },
 
   removeTyping() {
     const t = document.getElementById('typing');
     if (t) t.remove();
+  },
+
+  // Phase 7 Spec 7 — reusable support-card pattern (not just Gentle
+  // Mode), reference's exact copy/structure. Appended as a child of the
+  // triggering SEVO message, matching how the reference nests it inside
+  // .msg.sevo rather than as a separate standalone element.
+  appendSupportCard(li) {
+    if (!li) return;
+    const card = document.createElement('div');
+    card.className = 'support-card';
+    card.setAttribute('role', 'region');
+    card.setAttribute('aria-label', 'Support options');
+    card.innerHTML = `
+      <div class="support-card-label">YOU DON'T HAVE TO DO THIS ALONE</div>
+      <button class="support-option" type="button" onclick="GentleModeUI.messageAFriend()">
+        <span><b>Message a friend</b> — I can help you write it</span>
+        <span class="go" aria-hidden="true">open →</span>
+      </button>
+      <button class="support-option" type="button" onclick="GentleModeUI.stayHere()">
+        <span>Just keep talking to me</span>
+        <span class="go" aria-hidden="true">stay →</span>
+      </button>
+    `;
+    li.appendChild(card);
+    const chat = document.getElementById('chat');
+    chat.scrollTop = chat.scrollHeight;
   },
 
   playTypeSound() {
@@ -2563,11 +2598,14 @@ const UI = {
     chat.innerHTML = '';
     history.forEach(msg => {
       if (msg.role === 'user' || msg.role === 'assistant') {
-        const div = document.createElement('div');
-        div.className = `message ${msg.role === 'user' ? 'user' : 'ai'}`;
-        const avatar = msg.role === 'assistant' ? '⚡' : '👤';
-        div.innerHTML = `<div class="msg-avatar">${avatar}</div><div class="bubble">${msg.content.replace(/\n/g, '<br>')}</div>`;
-        chat.appendChild(div);
+        const role = msg.role === 'assistant' ? 'ai' : 'user';
+        const li = document.createElement('li');
+        li.className = `msg ${role === 'ai' ? 'sevo' : 'user'}`;
+        // Rehydrated history has no per-message timestamp stored — the tag
+        // shows load time as a rough marker, same limitation the old
+        // avatar-only rendering had (no timestamp at all).
+        li.innerHTML = `<time class="msg-tag">${formatMsgTag(role)}</time><div class="msg-body">${msg.content.replace(/\n/g, '<br>')}</div>`;
+        chat.appendChild(li);
       }
     });
     chat.scrollTop = chat.scrollHeight;
@@ -2798,7 +2836,17 @@ function resetSetup() { localStorage.clear(); location.reload(); }
 
 function updateAssistantName() {
   document.getElementById('assistantTitle').textContent = CONFIG.assistantName.toUpperCase();
-  document.getElementById('welcomeSub').textContent = `All systems operational. What's your command, ${USER_PROFILE.nickname}?`;
+  document.getElementById('welcomeSub').textContent = `What's on your mind, ${USER_PROFILE.nickname}?`;
+}
+
+// Phase 7 Spec 7 — "Set a reminder" quick chip: pre-fills the composer
+// rather than auto-sending, since a bare "remind me to" isn't a
+// complete request on its own — leaves the cursor for the user to finish.
+function fillReminderPrompt() {
+  const input = document.getElementById('userInput');
+  input.value = 'Remind me to ';
+  input.focus();
+  autoResize(input);
 }
 
 async function sendMessage() {
@@ -2818,16 +2866,16 @@ function clearChat() {
   MemoryAgent.clear();
   STATE.messageCount = 0;
   const chat = document.getElementById('chat');
-  chat.innerHTML = `<div class="welcome" id="welcome">
-    <h2 id="welcomeTitle">SEVO ONLINE ⚡</h2>
-    <p id="welcomeSub">All systems operational. What's your command, ${USER_PROFILE.nickname}?</p>
+  chat.innerHTML = `<li class="welcome" id="welcome">
+    <h2 id="welcomeTitle" class="serif">SEVO</h2>
+    <p id="welcomeSub">What's on your mind, ${USER_PROFILE.nickname}?</p>
     <div class="suggestions">
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div>
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div>
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div>
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div>
+      <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">What's the weather today?</button>
+      <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">What should I focus on today?</button>
+      <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">Help me with my BBA assignment</button>
+      <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">Roast me a little 😂</button>
     </div>
-  </div>`;
+  </li>`;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
 }
 

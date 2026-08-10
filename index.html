@@ -6,7 +6,7 @@
 <title>SEVO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#00b4d8">
@@ -28,8 +28,6 @@
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signinPassword', this)" title="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSignIn()">SIGN IN ⚡</button>
-      <div class="auth-divider"><span>or</span></div>
-      <button class="setup-btn google-btn" onclick="AuthUI.handleGoogleSignIn()">SIGN IN WITH GOOGLE</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('forgot'); return false;">Forgot password?</a>
         <a href="#" onclick="AuthUI.showPanel('signup'); return false;">Need an account? Sign up</a>
@@ -44,8 +42,6 @@
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signupPassword', this)" title="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSignUp()">CREATE ACCOUNT ⚡</button>
-      <div class="auth-divider"><span>or</span></div>
-      <button class="setup-btn google-btn" onclick="AuthUI.handleGoogleSignIn()">SIGN IN WITH GOOGLE</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('signin'); return false;">Already have an account? Sign in</a>
       </div>
@@ -89,28 +85,6 @@
   <div class="statusbar-right">ACTIVE</div>
 </div>
 
-<header>
-  <div class="header-left">
-    <div class="avatar-wrapper">
-      <div class="avatar-ring avatar-ring-1"></div>
-      <div class="avatar-ring avatar-ring-2"></div>
-      <div class="avatar-ring avatar-ring-3"></div>
-      <div class="avatar" id="mainAvatar">⚡</div>
-    </div>
-    <div class="header-info">
-      <h1 id="assistantTitle">S E V O</h1>
-      <div class="status">ONLINE & READY</div>
-    </div>
-  </div>
-  <div class="header-right">
-    <div id="weatherWidget" class="weather-widget">🌡️ --°C</div>
-    <button class="icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" title="Toggle voice">🔊</button>
-    <button class="icon-btn" onclick="clearChat()" title="Clear">🗑️</button>
-    <button class="icon-btn" onclick="AuthUI.logout()" title="Log out">🚪</button>
-    <button class="icon-btn" onclick="AccountUI.openSettings()" title="Settings">⚙️</button>
-  </div>
-</header>
-
 <!-- Phase 7 Spec 6 — settings + account deletion. Deliberately its own
      panel behind the gear icon, not reachable from the main chat flow. -->
 <div id="settingsPanel" style="display:none;">
@@ -142,30 +116,65 @@
   </div>
 </div>
 
-<div id="chat">
-  <div class="welcome" id="welcome">
-    <h2 id="welcomeTitle">SEVO ONLINE ⚡</h2>
-    <p id="welcomeSub">All systems operational. What's your command, Saurabh?</p>
-    <div class="suggestions">
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">What's the weather today?</div>
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">What should I focus on today?</div>
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">Help me with my BBA assignment</div>
-      <div class="suggestion-chip" onclick="sendSuggestion(this)">Roast me a little 😂</div>
-    </div>
-  </div>
-</div>
+<!-- ============================================================
+     Phase 7 Spec 7 — main chat screen, redesigned to Saurabh's
+     reference visual language. Color tokens/fonts are scoped to
+     .frame (not :root) so the not-yet-redesigned screens (auth,
+     settings, titlebar/statusbar) keep working unchanged on the old
+     system until their own checkpoints.
+     ============================================================ -->
+<div class="frame">
 
-<footer>
-  <div class="input-wrapper">
-    <span class="input-prefix">&gt;</span>
-    <textarea id="userInput" placeholder="enter command..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-    <div class="input-actions">
-      <button class="action-btn" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎤</button>
-      <button class="action-btn" id="sendBtn" onclick="sendMessage()">➤</button>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <b id="assistantTitle">SEVO</b> · with you
+      <span id="mainAvatar" class="voice-indicator" aria-hidden="true"></span>
     </div>
-  </div>
-  <div class="hint">ENTER · send &nbsp;|&nbsp; SHIFT+ENTER · new line &nbsp;|&nbsp; 🎤 · voice</div>
-</footer>
+    <div class="topbar-right">
+      <div id="weatherWidget" class="weather-pill" title="Weather">🌡️ --°C</div>
+      <button class="topbar-icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" aria-label="Toggle voice output">🔊</button>
+      <button class="topbar-icon-btn" onclick="clearChat()" aria-label="Clear conversation">🗑️</button>
+      <button class="topbar-icon-btn" onclick="GentleModeUI.enter()" aria-label="Enter gentle mode">🤍</button>
+      <button class="topbar-icon-btn" onclick="AccountUI.openSettings()" aria-label="Settings">⚙️</button>
+      <button class="topbar-icon-btn" onclick="AuthUI.logout()" aria-label="Log out">🚪</button>
+      <div class="mode-pill" id="modePill" aria-label="Current mode: online">
+        <div class="mode-dot" aria-hidden="true"></div>
+        <span id="modePillText">online</span>
+      </div>
+    </div>
+  </header>
+  <div class="topbar-line" aria-hidden="true"></div>
+
+  <ol class="thread" id="chat" role="log" aria-live="polite" aria-label="Conversation history" aria-relevant="additions">
+    <li class="welcome" id="welcome">
+      <h2 id="welcomeTitle" class="serif">SEVO</h2>
+      <p id="welcomeSub">What's on your mind, Saurabh?</p>
+      <div class="suggestions">
+        <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">What's the weather today?</button>
+        <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">What should I focus on today?</button>
+        <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">Help me with my BBA assignment</button>
+        <button class="suggestion-chip" type="button" onclick="sendSuggestion(this)">Roast me a little 😂</button>
+      </div>
+    </li>
+  </ol>
+
+  <footer class="composer-wrap">
+    <div class="quick-chips">
+      <button class="quick-chip" type="button" onclick="fillReminderPrompt()">Set a reminder</button>
+      <button class="quick-chip" type="button" onclick="GentleModeUI.enter()">Gentle mode</button>
+    </div>
+    <form class="composer-box" onsubmit="event.preventDefault(); sendMessage();">
+      <label for="userInput" class="sr-only">Type your message</label>
+      <textarea id="userInput" placeholder="Talk to me..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)" aria-label="Type your message"></textarea>
+      <button class="composer-icon-btn" id="voiceBtn" type="button" onclick="toggleVoice()" aria-label="Voice input">🎤</button>
+      <button class="send-btn" id="sendBtn" type="submit" aria-label="Send message">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#14130F" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </form>
+    <p class="state-line">enter to send · shift+enter for new line</p>
+  </footer>
+
+</div>
 
 <div id="ytPlayerWidget" class="yt-player-widget" style="display:none;">
   <button id="ytCloseBtn" class="yt-close-btn" onclick="YTPlayerAgent.stop()" title="Close player">✕</button>
