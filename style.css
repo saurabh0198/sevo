@@ -1111,19 +1111,51 @@ body.is-mobile .bubble {
 
 /* Topbar */
 .topbar {
-  padding: 20px 24px 14px 24px;
+  padding: 14px 24px 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Utility icon row — left group is message/chat actions (voice output,
+   clear chat), right group is app-level actions (gentle mode, settings,
+   logout). Split to opposite edges so grouping reads at a glance instead
+   of one crammed row. */
+.topbar-icons {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar-icons-left,
+.topbar-icons-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Title block: top line is the title lockup + status pills (aligned to
+   the same centerline since they're siblings in one row), second line
+   is the personality chip — keeps icons/temperature/title off a shared
+   band entirely. */
+.topbar-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.topbar-title-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-shrink: 0;
-}
-
-.topbar-left {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   min-width: 0;
+}
+.topbar-title-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .topbar-brand {
@@ -1133,28 +1165,31 @@ body.is-mobile .bubble {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 .topbar-brand b { color: var(--text); }
 
-/* Personality Presets — quiet status label, tapping jumps into the
-   settings panel's Personality section. Kept visually small (matches
-   "quiet" requirement) but the tappable area is invisibly expanded to
-   44px, same technique as .mode-pill.exitable — the reference's small
-   pill/label sizing stays intact, only the hit target grows. */
+/* Personality Presets — styled as a small mode-indicator chip (mirrors
+   .mode-pill's treatment: same --calm/--calm-soft tokens) rather than
+   bare floating text, so it reads as a status pill under the title.
+   Tappable area is still invisibly expanded to 44px on top of the now-
+   larger visible pill, same technique as .mode-pill.exitable. */
 .personality-label {
   position: relative;
-  background: none;
-  border: none;
-  color: var(--text-faint);
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  background: var(--calm-soft);
+  border: 1px solid #8FA98F33;
+  border-radius: 20px;
+  color: var(--calm);
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.3px;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 11px;
   margin: 0;
-  text-align: left;
-  align-self: flex-start;
-  transition: color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 .personality-label::before {
   content: '';
@@ -1166,7 +1201,8 @@ body.is-mobile .bubble {
   transform: translateY(-50%);
 }
 .personality-label:hover {
-  color: var(--calm);
+  background: #8FA98F33;
+  border-color: #8FA98F55;
 }
 .personality-label:focus-visible {
   outline: 2px solid var(--focus);
@@ -1188,12 +1224,6 @@ body.is-mobile .bubble {
 @keyframes voicePulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .topbar-icon-btn {
@@ -1221,11 +1251,18 @@ body.is-mobile .bubble {
   outline-offset: 2px;
 }
 
+/* Standalone status pill, kept out of the title lockup entirely — sits
+   beside .mode-pill in .topbar-title-right, both on the title's own
+   centerline. */
 .weather-pill {
+  display: inline-flex;
+  align-items: center;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10.5px;
   color: var(--text-faint);
-  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 5px 10px;
   cursor: default;
 }
 
@@ -1240,7 +1277,6 @@ body.is-mobile .bubble {
   border: 1px solid #8FA98F33;
   border-radius: 20px;
   padding: 5px 11px;
-  margin-left: 4px;
 }
 .mode-dot {
   width: 5px;

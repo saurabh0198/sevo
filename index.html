@@ -151,24 +151,36 @@
 <div class="frame">
 
   <header class="topbar">
-    <div class="topbar-left">
-      <div class="topbar-brand">
-        <b id="assistantTitle">SEVO</b> · with you
-        <span id="mainAvatar" class="voice-indicator" aria-hidden="true"></span>
+    <!-- Utility icon row — split into left (message/chat actions) and
+         right (app-level actions) groups so nothing shares a band with
+         the title or status pills below. -->
+    <div class="topbar-icons">
+      <div class="topbar-icons-left">
+        <button class="topbar-icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" aria-label="Voice output on — tap to mute">🔊</button>
+        <button class="topbar-icon-btn" onclick="clearChat()" aria-label="Clear conversation">🗑️</button>
+      </div>
+      <div class="topbar-icons-right">
+        <button class="topbar-icon-btn" id="gentleModeHeartBtn" onclick="GentleModeUI.toggle()" aria-label="Enter gentle mode">🤍</button>
+        <button class="topbar-icon-btn" onclick="AccountUI.openSettings()" aria-label="Settings">⚙️</button>
+        <button class="topbar-icon-btn" onclick="AuthUI.logout()" aria-label="Log out">🚪</button>
+      </div>
+    </div>
+
+    <div class="topbar-title-block">
+      <div class="topbar-title-top">
+        <div class="topbar-brand">
+          <b id="assistantTitle">SEVO</b> · with you
+          <span id="mainAvatar" class="voice-indicator" aria-hidden="true"></span>
+        </div>
+        <div class="topbar-title-right">
+          <div id="weatherWidget" class="weather-pill" title="Weather">🌡️ --°C</div>
+          <div class="mode-pill" id="modePill" aria-label="Current mode: online">
+            <div class="mode-dot" aria-hidden="true"></div>
+            <span id="modePillText">online</span>
+          </div>
+        </div>
       </div>
       <button type="button" class="personality-label" id="personalityLabel" onclick="PersonalityUI.openFromLabel()" aria-label="Current tone: Balanced — tap to change personality settings">Balanced</button>
-    </div>
-    <div class="topbar-right">
-      <div id="weatherWidget" class="weather-pill" title="Weather">🌡️ --°C</div>
-      <button class="topbar-icon-btn" onclick="toggleVoiceOutput()" id="speakerBtn" aria-label="Voice output on — tap to mute">🔊</button>
-      <button class="topbar-icon-btn" onclick="clearChat()" aria-label="Clear conversation">🗑️</button>
-      <button class="topbar-icon-btn" id="gentleModeHeartBtn" onclick="GentleModeUI.toggle()" aria-label="Enter gentle mode">🤍</button>
-      <button class="topbar-icon-btn" onclick="AccountUI.openSettings()" aria-label="Settings">⚙️</button>
-      <button class="topbar-icon-btn" onclick="AuthUI.logout()" aria-label="Log out">🚪</button>
-      <div class="mode-pill" id="modePill" aria-label="Current mode: online">
-        <div class="mode-dot" aria-hidden="true"></div>
-        <span id="modePillText">online</span>
-      </div>
     </div>
   </header>
   <div class="topbar-line" aria-hidden="true"></div>
