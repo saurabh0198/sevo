@@ -16,18 +16,17 @@
 
 <div id="setup">
   <div class="setup-card">
-    <div class="big-icon">⚡</div>
-    <h2>SEVO SYSTEM</h2>
+    <h2 class="serif">SEVO</h2>
     <div id="authMessage" class="auth-message" style="display:none;"></div>
 
     <div id="authPanelSignin" class="auth-panel">
       <p>Sign in to continue.</p>
-      <input type="email" class="setup-input" id="signinEmail" placeholder="// email" autocomplete="username" />
+      <input type="email" class="setup-input" id="signinEmail" placeholder="Email" autocomplete="username" />
       <div class="password-field">
-        <input type="password" class="setup-input" id="signinPassword" placeholder="// password" autocomplete="current-password" />
+        <input type="password" class="setup-input" id="signinPassword" placeholder="Password" autocomplete="current-password" />
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signinPassword', this)" title="Show password">👁</button>
       </div>
-      <button class="setup-btn" onclick="AuthUI.handleSignIn()">SIGN IN ⚡</button>
+      <button class="setup-btn" onclick="AuthUI.handleSignIn()">Sign in</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('forgot'); return false;">Forgot password?</a>
         <a href="#" onclick="AuthUI.showPanel('signup'); return false;">Need an account? Sign up</a>
@@ -36,12 +35,12 @@
 
     <div id="authPanelSignup" class="auth-panel" style="display:none;">
       <p>Create an account.</p>
-      <input type="email" class="setup-input" id="signupEmail" placeholder="// email" autocomplete="username" />
+      <input type="email" class="setup-input" id="signupEmail" placeholder="Email" autocomplete="username" />
       <div class="password-field">
-        <input type="password" class="setup-input" id="signupPassword" placeholder="// password (min 6 characters)" autocomplete="new-password" />
+        <input type="password" class="setup-input" id="signupPassword" placeholder="Password (min 6 characters)" autocomplete="new-password" />
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signupPassword', this)" title="Show password">👁</button>
       </div>
-      <button class="setup-btn" onclick="AuthUI.handleSignUp()">CREATE ACCOUNT ⚡</button>
+      <button class="setup-btn" onclick="AuthUI.handleSignUp()">Create account</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('signin'); return false;">Already have an account? Sign in</a>
       </div>
@@ -49,8 +48,8 @@
 
     <div id="authPanelForgot" class="auth-panel" style="display:none;">
       <p>Enter your email — we'll send a reset link.</p>
-      <input type="email" class="setup-input" id="forgotEmail" placeholder="// email" autocomplete="username" />
-      <button class="setup-btn" onclick="AuthUI.handleForgotPassword()">SEND RESET LINK ⚡</button>
+      <input type="email" class="setup-input" id="forgotEmail" placeholder="Email" autocomplete="username" />
+      <button class="setup-btn" onclick="AuthUI.handleForgotPassword()">Send reset link</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('signin'); return false;">Back to sign in</a>
       </div>
@@ -59,14 +58,14 @@
     <div id="authPanelReset" class="auth-panel" style="display:none;">
       <p>Set a new password.</p>
       <div class="password-field">
-        <input type="password" class="setup-input" id="resetPassword" placeholder="// new password (min 6 characters)" autocomplete="new-password" />
+        <input type="password" class="setup-input" id="resetPassword" placeholder="New password (min 6 characters)" autocomplete="new-password" />
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('resetPassword', this)" title="Show password">👁</button>
       </div>
       <div class="password-field">
-        <input type="password" class="setup-input" id="resetPasswordConfirm" placeholder="// confirm new password" autocomplete="new-password" />
+        <input type="password" class="setup-input" id="resetPasswordConfirm" placeholder="Confirm new password" autocomplete="new-password" />
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('resetPasswordConfirm', this)" title="Show password">👁</button>
       </div>
-      <button class="setup-btn" onclick="AuthUI.handleSetNewPassword()">SET PASSWORD ⚡</button>
+      <button class="setup-btn" onclick="AuthUI.handleSetNewPassword()">Set password</button>
     </div>
   </div>
 </div>
@@ -89,9 +88,8 @@
      panel behind the gear icon, not reachable from the main chat flow. -->
 <div id="settingsPanel" style="display:none;">
   <div class="setup-card">
-    <div class="big-icon">⚙️</div>
-    <h2>SETTINGS</h2>
-    <p id="settingsEmail" style="font-size:11px; color:var(--muted); margin-bottom:16px;"></p>
+    <h2 class="serif">Settings</h2>
+    <p id="settingsEmail" style="font-size:12px; color:var(--text-dim); margin-bottom:16px;"></p>
 
     <button class="setup-btn" onclick="AccountUI.resetLocalData()">RESET LOCAL APP DATA</button>
 
