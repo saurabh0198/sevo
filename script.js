@@ -68,7 +68,12 @@ const AuthAgent = {
   session: null,
 
   init() {
-    this.client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+    // PKCE (not the default implicit flow): Google's redirect in Electron is
+    // caught by a plain local http server, which can only ever see query
+    // params, never the URL fragment implicit-flow tokens arrive in.
+    this.client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
+      auth: { flowType: 'pkce' }
+    });
     this.client.auth.onAuthStateChange((event, session) => {
       this.session = session;
       if (event === 'PASSWORD_RECOVERY') {
@@ -122,6 +127,28 @@ const AuthAgent = {
 
   async updatePassword(newPassword) {
     return await this.client.auth.updateUser({ password: newPassword });
+  },
+
+  // PWA/browser: standard full-page redirect, no custom handling needed —
+  // detectSessionInUrl picks the session up automatically on return.
+  async signInWithGoogleWeb() {
+    return await this.client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: CONFIG.appUrl }
+    });
+  },
+
+  // Electron: skipBrowserRedirect so the SDK just hands back the URL
+  // instead of navigating this window — main.js opens it externally.
+  async getGoogleOAuthUrl() {
+    return await this.client.auth.signInWithOAuth({
+      provider: 'google',
+      options: { skipBrowserRedirect: true, redirectTo: 'http://localhost:8766' }
+    });
+  },
+
+  async exchangeCodeForSession(code) {
+    return await this.client.auth.exchangeCodeForSession(code);
   }
 };
 
@@ -164,6 +191,45 @@ const AuthUI = {
 
     document.getElementById('setup').style.display = 'none';
     await bootApp();
+  },
+
+  async handleGoogleSignIn() {
+    this.clearMessage();
+    const isElectron = !!window.electronAPI?.startGoogleAuth;
+    console.log('[AuthUI] handleGoogleSignIn — Electron path:', isElectron);
+
+    if (isElectron) {
+      // Electron: get the auth URL without navigating this window, open it
+      // in the system browser, wait for main.js's local server to catch the
+      // redirect and hand back the code, then finish the PKCE exchange here.
+      const { data, error } = await AuthAgent.getGoogleOAuthUrl();
+      console.log('[AuthUI] getGoogleOAuthUrl ->', { url: data?.url, error });
+      if (error) return this.showMessage(error.message);
+
+      let code;
+      try {
+        console.log('[AuthUI] Calling electronAPI.startGoogleAuth, waiting on main process...');
+        code = await window.electronAPI.startGoogleAuth(data.url);
+        console.log('[AuthUI] startGoogleAuth resolved with code (first 10 chars):', code ? code.slice(0, 10) + '...' : code);
+      } catch (e) {
+        console.error('[AuthUI] startGoogleAuth rejected:', e);
+        return this.showMessage(e.message || 'Google sign-in failed.');
+      }
+
+      const { data: exchangeData, error: exchangeError } = await AuthAgent.exchangeCodeForSession(code);
+      console.log('[AuthUI] exchangeCodeForSession ->', { session: !!exchangeData?.session, error: exchangeError });
+      if (exchangeError) return this.showMessage(exchangeError.message);
+
+      console.log('[AuthUI] Google sign-in complete, booting app');
+      document.getElementById('setup').style.display = 'none';
+      await bootApp();
+    } else {
+      // PWA/browser: full-page redirect to Google, then back — nothing
+      // further to do here, window.onload picks up the session on return.
+      const { error } = await AuthAgent.signInWithGoogleWeb();
+      console.log('[AuthUI] signInWithGoogleWeb ->', { error });
+      if (error) return this.showMessage(error.message);
+    }
   },
 
   async handleSignUp() {

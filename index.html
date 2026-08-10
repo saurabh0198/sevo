@@ -29,6 +29,8 @@
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signinPassword', this)" title="Show password" aria-label="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSignIn()">Sign in</button>
+      <div class="auth-divider"><span>or</span></div>
+      <button class="setup-btn google-btn" onclick="AuthUI.handleGoogleSignIn()">Sign in with Google</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('forgot'); return false;">Forgot password?</a>
         <a href="#" onclick="AuthUI.showPanel('signup'); return false;">Need an account? Sign up</a>
@@ -45,6 +47,8 @@
         <button type="button" class="password-toggle" onclick="AuthUI.togglePasswordVisibility('signupPassword', this)" title="Show password" aria-label="Show password">👁</button>
       </div>
       <button class="setup-btn" onclick="AuthUI.handleSignUp()">Create account</button>
+      <div class="auth-divider"><span>or</span></div>
+      <button class="setup-btn google-btn" onclick="AuthUI.handleGoogleSignIn()">Sign in with Google</button>
       <div class="auth-links">
         <a href="#" onclick="AuthUI.showPanel('signin'); return false;">Already have an account? Sign in</a>
       </div>

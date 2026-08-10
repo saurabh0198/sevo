@@ -1031,6 +1031,43 @@ body.is-mobile .bubble {
   border-radius: 4px;
 }
 
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  margin: 12px 0;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-divider span {
+  padding: 0 10px;
+}
+
+/* Secondary/outlined style — de-emphasized against .setup-btn's now-solid
+   --calm primary treatment, standard primary/secondary button hierarchy. */
+.google-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--text-dim);
+}
+
+.google-btn:hover {
+  border-color: var(--calm);
+  color: var(--calm);
+  background: var(--calm-hover);
+}
+
 /* ============================================================
    PHASE 7 SPEC 7 — VISUAL REDESIGN: MAIN CHAT SCREEN
    Implements Saurabh's reference HTML/CSS exactly for fonts, color
