@@ -91,7 +91,7 @@
     <h2 class="serif">Settings</h2>
     <p id="settingsEmail" style="font-size:12px; color:var(--text-dim); margin-bottom:16px;"></p>
 
-    <button class="setup-btn" onclick="AccountUI.resetLocalData()">RESET LOCAL APP DATA</button>
+    <button class="setup-btn secondary-btn" onclick="AccountUI.resetLocalData()">Reset local app data</button>
 
     <div class="danger-zone">
       <h3>DANGER ZONE</h3>
@@ -99,18 +99,18 @@
       <div id="deleteMessage" class="auth-message" style="display:none;"></div>
 
       <div id="deleteStep1">
-        <button class="setup-btn danger-btn" onclick="AccountUI.showDeleteConfirm()">DELETE MY ACCOUNT</button>
+        <button class="setup-btn danger-btn" onclick="AccountUI.showDeleteConfirm()">Delete my account</button>
       </div>
 
       <div id="deleteStep2" style="display:none;">
         <p>Type <strong>DELETE</strong> below to confirm. There is no undo.</p>
         <input type="text" class="setup-input" id="deleteConfirmInput" placeholder="Type DELETE to confirm" autocomplete="off" />
-        <button class="setup-btn danger-btn" onclick="AccountUI.confirmDelete()">PERMANENTLY DELETE</button>
-        <button class="setup-btn" onclick="AccountUI.cancelDelete()">CANCEL</button>
+        <button class="setup-btn danger-btn-solid" onclick="AccountUI.confirmDelete()">Permanently delete</button>
+        <button class="setup-btn secondary-btn" onclick="AccountUI.cancelDelete()">Cancel</button>
       </div>
     </div>
 
-    <button class="setup-btn" onclick="AccountUI.closeSettings()" style="margin-top:16px;">CLOSE</button>
+    <button class="setup-btn secondary-btn" onclick="AccountUI.closeSettings()" style="margin-top:16px;">Close</button>
   </div>
 </div>
 

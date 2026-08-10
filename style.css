@@ -373,6 +373,38 @@ header::after {
   background: #ff406015 !important;
 }
 
+/* Phase 7 Spec 7 checkpoint 3 — the actual point-of-no-return confirm
+   button gets solid fill, heavier visual weight than the outlined
+   .danger-btn entry point, matching the escalating commitment of the
+   delete flow (open danger zone -> outlined red -> solid red only on
+   the final confirm). */
+.danger-btn-solid {
+  background: var(--red) !important;
+  border: none !important;
+  color: var(--bg) !important;
+}
+
+.danger-btn-solid:hover {
+  background: #ff5c78 !important;
+}
+
+/* Secondary/outlined — same treatment as .google-btn (which stays its
+   own class, tied to the still-parked Google Sign-in feature), used
+   here for neutral/de-emphasized actions (reset local data, cancel,
+   close) that shouldn't compete with .setup-btn's solid --calm
+   primary treatment. */
+.secondary-btn {
+  background: transparent !important;
+  border: 1px solid var(--line) !important;
+  color: var(--text-dim) !important;
+}
+
+.secondary-btn:hover {
+  border-color: var(--calm) !important;
+  color: var(--calm) !important;
+  background: var(--calm-hover) !important;
+}
+
 .setup-card {
   background: var(--panel);
   border: 1px solid var(--line);
