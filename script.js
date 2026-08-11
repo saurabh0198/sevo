@@ -54,6 +54,10 @@ const STATE = {
   hoursSinceLastSession: null,
   previousEmotionalSummary: null,
   previousKeyTopics: null,
+  // First-Time Greeting — set from /api/session/open's is_first_time
+  // field (MoodAgent.logSessionOpen). Separate from absenceTier/the
+  // returning-user greeting path entirely.
+  isFirstTimeUser: false,
 };
 
 // ============================================================
@@ -859,10 +863,12 @@ TOPICS: [Comma-separated list of specific topics, tasks, or open questions]`,
       STATE.hoursSinceLastSession = data.gap_hours;
       STATE.previousEmotionalSummary = data.emotional_summary || null;
       STATE.previousKeyTopics = data.key_topics || null;
+      STATE.isFirstTimeUser = !!data.is_first_time;
     } catch(e) {
       STATE.absenceTier = 'none';
       STATE.previousEmotionalSummary = null;
       STATE.previousKeyTopics = null;
+      STATE.isFirstTimeUser = false;
     }
   },
 
@@ -3061,6 +3067,73 @@ async function proactiveGreeting() {
 
 
 // ============================================================
+// FIRST-TIME GREETING — deliberately separate from proactiveGreeting()
+// above, not the same "absence tier" path. Fires once, only when
+// STATE.isFirstTimeUser is true (set by MoodAgent.logSessionOpen from
+// /api/session/open's is_first_time field). A brand-new user has no
+// memories, no mood history, no prior session — this greeting never
+// references any of that, unlike the returning-user path.
+// ============================================================
+async function firstTimeGreeting() {
+  const systemPrompt = `Current date/time: ${getCurrentDateTime()}. This is this person's very first-ever message from you — they are brand new to SEVO and don't know what it is yet. Send ONE short first greeting:
+1. Open with a time-appropriate greeting for the actual current time of day above (Good morning/afternoon/evening — never assume, check the time given).
+2. In one line, warmly introduce what SEVO is in plain, simple terms — a personal AI companion/assistant — the way a real person would introduce themselves meeting someone for the first time. Not a feature list, not a sales pitch.
+3. End with a genuine, open conversational invitation — a real question they'd naturally respond to, not a menu of options or a list of commands.
+Keep the whole thing under 3 sentences and around 40 words total. Do not reference any prior conversations, memories, or mood history — there are none, this is truly the first message ever. Do not mention stocks, crypto, or markets. Do not mention Gentle Mode or any support/therapy framing — this is a normal, upbeat first hello, nothing more.`;
+
+  try {
+    const res = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        call_type: 'companion',
+        mode: 'normal',
+        tone: STATE.tonePreset,
+        address_name: STATE.addressName,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: 'Say hello for the first time' }]
+      })
+    });
+    const data = await res.json();
+    const greeting = parseBackendResponse(data);
+    if (!greeting) return;
+
+    UI.addMessage('ai', greeting);
+    if (STATE.voiceOutput) VoiceAgent.speak(greeting);
+
+    await FirstGreetingAgent.persistAndComplete(greeting);
+  } catch(e) {}
+}
+
+// Distinct from MemoryAgent.push(), which is fire-and-forget and never
+// confirms the save actually landed. first_greeting_delivered must only
+// flip server-side once the greeting is genuinely confirmed persisted —
+// so this awaits the save and checks the response before marking
+// anything complete. On any failure (network blip, DB hiccup), it
+// deliberately does nothing further: the flag stays false server-side,
+// so the greeting correctly retries next session instead of silently
+// never showing one at all.
+const FirstGreetingAgent = {
+  async persistAndComplete(content) {
+    try {
+      const saveRes = await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/conversation`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: MemoryAgent.sessionId, role: 'assistant', content })
+      });
+      if (!saveRes.ok) return;
+
+      MemoryAgent.conversation.push({ role: 'assistant', content });
+      if (MemoryAgent.conversation.length > 40) MemoryAgent.conversation = MemoryAgent.conversation.slice(-40);
+      localStorage.setItem('sevo_memory', JSON.stringify(MemoryAgent.conversation));
+
+      await AuthAgent.authFetch(`${CONFIG.vercelUrl}/api/first-greeting/complete`, { method: 'POST' });
+    } catch(e) {}
+  }
+};
+
+
+// ============================================================
 // UI HELPERS
 // ============================================================
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
@@ -3147,7 +3220,14 @@ async function bootApp() {
 
   await MoodAgent.logSessionOpen();
 
-  setTimeout(proactiveGreeting, 3000);
+  // First-Time Greeting takes over instead of the normal returning-user
+  // proactiveGreeting() for exactly this one session — every other boot
+  // step above/below (memory, mood check-in, world briefing) is untouched.
+  if (STATE.isFirstTimeUser) {
+    setTimeout(firstTimeGreeting, 3000);
+  } else {
+    setTimeout(proactiveGreeting, 3000);
+  }
   setTimeout(() => MoodAgent.runProactiveCheckIn(), 5000);
   await WorldAgent.loadWatchlist();
   setTimeout(() => WorldAgent.deliverBriefing(), 7000);
