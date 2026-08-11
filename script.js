@@ -3230,7 +3230,14 @@ async function bootApp() {
   }
   setTimeout(() => MoodAgent.runProactiveCheckIn(), 5000);
   await WorldAgent.loadWatchlist();
-  setTimeout(() => WorldAgent.deliverBriefing(), 7000);
+  // Bug fix: deliverBriefing()'s only gate is a local "already shown
+  // today" localStorage check, which is always open on a first-ever
+  // session — it was firing as an unprompted second message right after
+  // the first-time greeting, with no first-time awareness at all. This
+  // is a proactive world briefing, not part of onboarding.
+  if (!STATE.isFirstTimeUser) {
+    setTimeout(() => WorldAgent.deliverBriefing(), 7000);
+  }
 }
 
 window.onload = async () => {
