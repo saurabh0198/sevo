@@ -516,11 +516,12 @@ function sanitizeAddressNameInput(el) {
 const GentleModeUI = {
   // Real usability finding from testing: entering used the heart icon,
   // exiting used the mode pill — two different, non-obvious controls.
-  // toggle() is now the actual entry point for both the heart icon and
-  // the quick-chip, so the same control works both ways as users
-  // naturally expect. The mode-pill-as-exit-control stays too — a
-  // redundant second way to exit is fine, having only ONE inconsistent
-  // way to enter/exit was the actual problem.
+  // toggle() is the entry point for the heart icon, so the same control
+  // works both ways as users naturally expect. The mode-pill-as-exit-
+  // control stays too — a redundant second way to exit is fine, having
+  // only ONE inconsistent way to enter/exit was the actual problem.
+  // (The redundant "Gentle mode" quick-chip that used to also call this
+  // was removed — the heart icon alone covers it.)
   toggle() {
     if (STATE.gentleMode) this.exit();
     else this.enter();
@@ -543,8 +544,6 @@ const GentleModeUI = {
     if (heartBtn) heartBtn.setAttribute('aria-label', 'Exit gentle mode');
 
     document.getElementById('userInput').placeholder = "I'm listening...";
-    const chips = document.querySelector('.quick-chips');
-    if (chips) chips.style.display = 'none';
     const stateLine = document.querySelector('.composer-wrap .state-line');
     if (stateLine) stateLine.textContent = 'no jokes, no hype — just listening. This space is yours.';
 
@@ -573,8 +572,6 @@ const GentleModeUI = {
     if (heartBtn) heartBtn.setAttribute('aria-label', 'Enter gentle mode');
 
     document.getElementById('userInput').placeholder = 'Talk to me...';
-    const chips = document.querySelector('.quick-chips');
-    if (chips) chips.style.display = 'flex';
     const stateLine = document.querySelector('.composer-wrap .state-line');
     if (stateLine) stateLine.textContent = 'enter to send · shift+enter for new line';
 
@@ -1239,7 +1236,7 @@ const WorldAgent = {
       return cryptoResult;
     }
 
-    if (lower.includes('briefing') || lower.includes('world update') || lower.includes("what's happening")) {
+    if (lower.includes('briefing') || lower.includes('world update') || lower.includes("what's happening") || lower.includes('news')) {
       await this.deliverBriefing(true);
       return null;
     }
@@ -2084,14 +2081,31 @@ const ReminderAgent = {
   checkInterval: null,
 
   init() {
-    this.checkInterval = setInterval(() => this.checkReminders(), 30000);
+    // Hotfix: was 30000ms — against a 60-second reminder (a common real
+    // test case) that's up to 50% worst-case timing error. 5s tightens
+    // that substantially. Doesn't fix full background-tab suspension
+    // (see checkReminders' notification comment) — just precision while
+    // the tab is actually alive and running.
+    this.checkInterval = setInterval(() => this.checkReminders(), 5000);
     this.checkReminders();
+  },
+
+  // Only prompts once real reminder-setting actually happens, not
+  // proactively at boot — no unsolicited permission prompt on every load.
+  async requestNotificationPermission() {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') return false;
+    try {
+      const perm = await Notification.requestPermission();
+      return perm === 'granted';
+    } catch(e) { return false; }
   },
 
   parseTime(text) {
     const now = new Date();
     // "at 6pm", "at 18:00"
-    const atMatch = text.match(/at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
+    const atMatch = text.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i);
     if (atMatch) {
       let hours = parseInt(atMatch[1]);
       const minutes = parseInt(atMatch[2] || '0');
@@ -2103,11 +2117,14 @@ const ReminderAgent = {
       if (target < now) target.setDate(target.getDate() + 1);
       return target;
     }
-    // "in X minutes/hours"
-    const inMatch = text.match(/in\s+(\d+)\s*(minute|hour|min|hr)/i);
-    if (inMatch) {
-      const val = parseInt(inMatch[1]);
-      const unit = inMatch[2].toLowerCase();
+    // Hotfix: was rigidly "in X minutes/hours" only — rejected real
+    // phrasings like "after 1 min", "of 1 min", and a bare "5 min" with
+    // no preposition at all. The preposition is now optional and widened
+    // to in/after/of, so all four forms parse the same way.
+    const durationMatch = text.match(/(?:\b(?:in|after|of)\s+)?(\d+)\s*(minutes?|hours?|mins?|hrs?)\b/i);
+    if (durationMatch) {
+      const val = parseInt(durationMatch[1]);
+      const unit = durationMatch[2].toLowerCase();
       const ms = unit.startsWith('h') ? val * 3600000 : val * 60000;
       return new Date(now.getTime() + ms);
     }
@@ -2135,13 +2152,29 @@ const ReminderAgent = {
 
     // Set reminder
     if (lower.includes('remind') || lower.includes('reminder')) {
-      const msgMatch = text.match(/remind(?:\s+me)?\s+(?:to\s+)?(.+?)(?:\s+at|\s+in|\s*$)/i);
-      const message = msgMatch ? msgMatch[1].trim() : 'Check this';
       const time = this.parseTime(text);
-      if (!time) return 'I need a time bro — try "remind me to eat at 7pm" or "remind me in 30 minutes"';
+      if (!time) return 'I need a time bro — try "remind me to eat at 7pm", "remind me in 30 minutes", or "remind me after 5 min"';
+
+      // Hotfix: message extraction used to be a lazy stop-word regex that
+      // broke down whenever there was no real task text before the time
+      // phrase (e.g. "remind me after 1 min" captured "after 1 min" as
+      // the literal message). Now: strip out whichever time-phrase form
+      // actually matched, then strip the leading "remind"/"set a
+      // reminder" scaffolding — whatever's left is the real task,
+      // regardless of which phrasing was used.
+      const rest = text
+        .replace(/\bat\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?/i, '')
+        .replace(/\b(?:in|after|of)?\s*\d+\s*(?:minutes?|hours?|mins?|hrs?)\b/i, '')
+        .replace(/^\s*set\s+(?:a\s+)?remind(?:er)?\s*/i, '')
+        .replace(/^\s*remind(?:\s+me)?\s*(?:to\s+)?/i, '')
+        .replace(/^\s*(?:of|at|in|after)\s+/i, '')
+        .trim();
+      const message = rest || 'Check this';
+
       const reminder = { id: Date.now(), message, time: time.getTime() };
       this.reminders.push(reminder);
       localStorage.setItem('sevo_reminders', JSON.stringify(this.reminders));
+      this.requestNotificationPermission(); // fire-and-forget, doesn't block the confirmation reply
       return `Reminder set: "${message}" at ${time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })} ⏰`;
     }
 
@@ -2154,6 +2187,15 @@ const ReminderAgent = {
     due.forEach(r => {
       UI.addMessage('ai', `⏰ Reminder: ${r.message}`);
       if (STATE.voiceOutput) VoiceAgent.speak(`Hey bro, reminder: ${r.message}`);
+      // Hotfix: previously ONLY an in-chat message — invisible unless the
+      // tab is actively open and visible. A real OS-level notification at
+      // least survives the tab being minimized/unfocused (not fully
+      // backgrounded/suspended, which mobile browsers can still throttle
+      // — that needs real Web Push + a server-side scheduler, a much
+      // bigger build than this fix; flagged separately, not done here).
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('SEVO Reminder', { body: r.message, icon: './icon-192.png' }); } catch(e) {}
+      }
     });
     if (due.length > 0) {
       this.reminders = this.reminders.filter(r => r.time > now);
@@ -2470,11 +2512,16 @@ Examples:
 "what are you playing" → music
 "what is quantum computing" → chat
 "what's the weather" → search
+"what's the weather tomorrow" → weather
+"weather this weekend" → weather
+"will it rain on friday" → weather
 "what's bitcoin at" → world
 "how's gold doing" → world
 "check HAL stock" → world
 "what's ethereum at" → world
 "any defence stocks moving" → world
+"what's the news today" → world
+"any news today" → world
 "open youtube in browser" → pc
 "go to github.com" → pc
 "new tab" → pc
@@ -2492,7 +2539,7 @@ Examples:
       });
       const data = await res.json();
       const raw = (parseBackendResponse(data) || '').trim().toLowerCase().replace(/[^a-z,]/g, '');
-      const valid = ['chat', 'search', 'youtube', 'pc', 'file', 'clipboard', 'reminder', 'battery', 'appswitch', 'world', 'email', 'music'];
+      const valid = ['chat', 'search', 'youtube', 'pc', 'file', 'clipboard', 'reminder', 'battery', 'appswitch', 'world', 'email', 'music', 'weather'];
       const routes = raw.split(',').map(r => r.trim()).filter(r => valid.includes(r));
       return routes.length > 0 ? [...new Set(routes)] : ['chat'];
     } catch(e) { return ['chat']; }
@@ -2595,6 +2642,13 @@ Examples:
       }
       if (routes[0] === 'battery') {
         const result = await BatteryAgent.execute(text);
+        if (result) { UI.addMessage('ai', result); if (STATE.voiceOutput) VoiceAgent.speak(result); }
+        UI.setStatus('SYSTEM ONLINE');
+        return;
+      }
+      if (routes[0] === 'weather') {
+        UI.setStatus('checking forecast...');
+        const result = await WeatherAgent.execute(text);
         if (result) { UI.addMessage('ai', result); if (STATE.voiceOutput) VoiceAgent.speak(result); }
         UI.setStatus('SYSTEM ONLINE');
         return;
@@ -2968,6 +3022,101 @@ function toggleVoiceOutput() {
 
 
 // ============================================================
+// WEATHER FORECAST AGENT — hotfix. Date-relative queries ("tomorrow",
+// "this weekend") used to silently get today's live temperature back,
+// since there was no forecast call anywhere and buildSystemPrompt()
+// unconditionally injects CURRENT weather into every companion message
+// regardless of what was actually asked. This bypasses the AI entirely
+// for these specific queries — deterministic date math against real
+// forecast data via /api/weather/forecast, not an LLM guess. Bare
+// "what's the weather" (no date) is untouched — that already worked
+// correctly and still goes through the existing search-routed path.
+// ============================================================
+const WeatherAgent = {
+  // Returns a local-midnight-anchored target Date, or null if the text
+  // has no date-relative phrase at all (caller falls through to the
+  // existing "current weather" handling in that case).
+  parseTargetDate(text) {
+    const lower = text.toLowerCase();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (lower.includes('day after tomorrow')) {
+      return new Date(startOfToday.getTime() + 2 * 86400000);
+    }
+    if (lower.includes('tomorrow')) {
+      return new Date(startOfToday.getTime() + 86400000);
+    }
+
+    const inDaysMatch = lower.match(/in\s+(\d+)\s+days?/);
+    if (inDaysMatch) {
+      return new Date(startOfToday.getTime() + parseInt(inDaysMatch[1]) * 86400000);
+    }
+
+    if (lower.includes('this weekend') || lower.includes('the weekend')) {
+      const todayIdx = startOfToday.getDay(); // 0=Sun..6=Sat
+      const daysUntilSat = todayIdx === 0 ? 6 : (6 - todayIdx + 7) % 7;
+      return new Date(startOfToday.getTime() + daysUntilSat * 86400000);
+    }
+
+    const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (let i = 0; i < weekdays.length; i++) {
+      if (lower.includes(weekdays[i])) {
+        const todayIdx = startOfToday.getDay();
+        let diff = (i - todayIdx + 7) % 7;
+        if (diff === 0) diff = 7; // naming today's own weekday means NEXT week's, not today
+        return new Date(startOfToday.getTime() + diff * 86400000);
+      }
+    }
+    return null;
+  },
+
+  formatDayLabel(targetDate, originalText) {
+    const lower = originalText.toLowerCase();
+    if (lower.includes('day after tomorrow')) return 'Day after tomorrow';
+    if (lower.includes('tomorrow')) return 'Tomorrow';
+    const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return weekdayNames[targetDate.getDay()];
+  },
+
+  async execute(text) {
+    const targetDate = this.parseTargetDate(text);
+    if (!targetDate) return null;
+
+    const targetDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+
+    try {
+      const res = await fetch(`${CONFIG.vercelUrl}/api/weather/forecast?city=${encodeURIComponent(CONFIG.city)}`);
+      const data = await res.json();
+      if (!data.list || data.list.length === 0) return "Couldn't reach the forecast service right now — try again in a bit.";
+
+      const dayEntries = data.list.filter(entry => entry.dt_txt.startsWith(targetDateStr));
+      if (dayEntries.length === 0) {
+        return "I can only see about 5 days ahead with the free forecast — that date's outside that window.";
+      }
+
+      const temps = dayEntries.map(e => e.main.temp);
+      const min = Math.round(Math.min(...temps));
+      const max = Math.round(Math.max(...temps));
+      // Prefer the entry closest to 13:00 for the headline description —
+      // more representative of "the day" than a 3am reading would be.
+      const midday = dayEntries.reduce((best, e) => {
+        const hour = parseInt(e.dt_txt.split(' ')[1].split(':')[0]);
+        const bestHour = parseInt(best.dt_txt.split(' ')[1].split(':')[0]);
+        return Math.abs(hour - 13) < Math.abs(bestHour - 13) ? e : best;
+      });
+      const desc = midday.weather[0].description;
+      const dayLabel = this.formatDayLabel(targetDate, text);
+
+      return `${dayLabel} in ${CONFIG.city}: ${desc}, around ${Math.round(midday.main.temp)}°C (range ${min}–${max}°C).`;
+    } catch(e) {
+      return "Couldn't reach the forecast service right now — try again in a bit.";
+    }
+  }
+};
+
+
+// ============================================================
 // WEATHER + NEWS
 // ============================================================
 async function fetchWeather() {
@@ -2993,32 +3142,6 @@ function getWeatherIcon(condition) {
   return icons[condition] || '🌡️';
 }
 
-async function fetchNews() {
-  try {
-    UI.setStatus('fetching news...');
-    const res = await fetch(`${CONFIG.vercelUrl}/api/news`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    const data = await res.json();
-    if (data.results && data.results.length > 0) {
-      const welcome = document.getElementById('welcome');
-      if (welcome) welcome.remove();
-      const chat = document.getElementById('chat');
-      const newsDiv = document.createElement('div');
-      newsDiv.className = 'message ai';
-      const headlines = data.results
-        .map((r, i) => `${i+1}. <a href="${r.url}" target="_blank" style="color:var(--accent);text-decoration:none;">${r.title}</a>`)
-        .join('<br><br>');
-      newsDiv.innerHTML = `<div class="msg-avatar">⚡</div><div class="bubble">📰 <b>TOP NEWS</b><br><br>${headlines}</div>`;
-      chat.appendChild(newsDiv);
-      chat.scrollTop = chat.scrollHeight;
-    }
-    UI.setStatus('SYSTEM ONLINE');
-  } catch(e) {
-    UI.setStatus('SYSTEM ONLINE');
-  }
-}
 
 
 // ============================================================
@@ -3147,16 +3270,6 @@ function updateAssistantName() {
   document.getElementById('welcomeSub').textContent = `What's on your mind, ${USER_PROFILE.nickname}?`;
 }
 
-// Phase 7 Spec 7 — "Set a reminder" quick chip: pre-fills the composer
-// rather than auto-sending, since a bare "remind me to" isn't a
-// complete request on its own — leaves the cursor for the user to finish.
-function fillReminderPrompt() {
-  const input = document.getElementById('userInput');
-  input.value = 'Remind me to ';
-  input.focus();
-  autoResize(input);
-}
-
 async function sendMessage() {
   const input = document.getElementById('userInput');
   const text = input.value.trim();
@@ -3216,7 +3329,6 @@ async function bootApp() {
   await MemoryAgent.loadSmartMemory();
   const history = await MemoryAgent.load();
   if (history && history.length > 0) UI.loadChatHistory();
-  fetchNews();
 
   await MoodAgent.logSessionOpen();
 

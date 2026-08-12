@@ -199,10 +199,6 @@
   </ol>
 
   <footer class="composer-wrap">
-    <div class="quick-chips">
-      <button class="quick-chip" type="button" onclick="fillReminderPrompt()">Set a reminder</button>
-      <button class="quick-chip" type="button" onclick="GentleModeUI.toggle()">Gentle mode</button>
-    </div>
     <form class="composer-box" onsubmit="event.preventDefault(); sendMessage();">
       <label for="userInput" class="sr-only">Type your message</label>
       <textarea id="userInput" placeholder="Talk to me..." rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)" aria-label="Type your message"></textarea>

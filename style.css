@@ -1505,35 +1505,6 @@ body.is-mobile .bubble {
   flex-shrink: 0;
 }
 
-.quick-chips {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.quick-chip {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
-  color: var(--text-dim);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 7px 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  min-height: 36px;
-}
-.quick-chip:hover,
-.quick-chip:focus-visible {
-  border-color: var(--calm);
-  color: var(--calm);
-  background: var(--calm-hover);
-}
-.quick-chip:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
 .composer-box {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1624,8 +1595,7 @@ body.is-mobile .bubble {
 /* 44px touch targets on mobile, matching the existing body.is-mobile pattern */
 body.is-mobile .topbar-icon-btn,
 body.is-mobile .composer-icon-btn,
-body.is-mobile .send-btn,
-body.is-mobile .quick-chip {
+body.is-mobile .send-btn {
   min-width: 44px;
   min-height: 44px;
 }
@@ -1639,7 +1609,7 @@ body.is-mobile .composer-box textarea {
     animation: none;
   }
   .thread { scroll-behavior: auto; }
-  .support-option, .send-btn, .composer-box, .quick-chip, .frame .suggestion-chip, .topbar-icon-btn, .mode-pill.exitable, .personality-label, .tone-btn {
+  .support-option, .send-btn, .composer-box, .frame .suggestion-chip, .topbar-icon-btn, .mode-pill.exitable, .personality-label, .tone-btn {
     transition: none;
   }
 }
